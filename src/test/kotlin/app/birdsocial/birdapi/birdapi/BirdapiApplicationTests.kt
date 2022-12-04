@@ -1,10 +1,10 @@
-package app.birdsocial.birdapi
+package app.birdsocial.birdapi.birdapi
 
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
 
 @SpringBootTest
-class BirdApiApplicationTests {
+class BirdapiApplicationTests {
 
 	@Test
 	fun contextLoads() {

@@ -1,1 +1,1 @@
-rootProject.name = "bird-api"
+rootProject.name = "birdapi"

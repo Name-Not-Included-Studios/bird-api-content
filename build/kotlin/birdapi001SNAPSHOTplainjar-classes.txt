@@ -1,1 +1,0 @@
-/home/thatcoldtoast/Development/projects/java-bird-api/build/classes/kotlin/main/app/birdsocial/birdapi/BirdApiApplication.class:/home/thatcoldtoast/Development/projects/java-bird-api/build/classes/kotlin/main/app/birdsocial/birdapi/BirdApiApplicationKt.class

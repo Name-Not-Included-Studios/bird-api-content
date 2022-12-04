@@ -7,7 +7,7 @@ plugins {
 	kotlin("plugin.spring") version "1.7.21"
 }
 
-group = "app.birdsocial"
+group = "app.birdsocial.birdapi"
 version = "0.0.1-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_17
 
@@ -16,10 +16,14 @@ repositories {
 }
 
 dependencies {
-	implementation("org.springframework.boot:spring-boot-starter")
+	implementation("org.springframework.boot:spring-boot-starter-graphql")
+	implementation("org.springframework.boot:spring-boot-starter-web")
+	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
+	testImplementation("org.springframework:spring-webflux")
+	testImplementation("org.springframework.graphql:spring-graphql-test")
 }
 
 tasks.withType<KotlinCompile> {
