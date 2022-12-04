@@ -7,6 +7,7 @@ import org.springframework.stereotype.Controller
 
 //import org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST
 
+//TODO Fix everything
 @Controller
 class UserController {
 
@@ -18,8 +19,8 @@ class UserController {
 
     @QueryMapping
 	fun greeting(): String {
+		return "Hello"
 //		val attributes: RequestAttributes? = RequestContextHolder.getRequestAttributes();
 //		return "Hello " + attributes.getAttribute(RequestAttributeFilter.NAME_ATTRIBUTE, SCOPE_REQUEST);
-		return "Hello"
 	}
 }
