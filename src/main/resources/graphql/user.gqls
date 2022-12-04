@@ -1,0 +1,12 @@
+type User {
+    userId: String!
+    username: String!
+    displayName: String!
+    bio: String
+    websiteUrl: String
+    avatarUrl: String
+    isVerified: Boolean
+    chirpCount: Int
+    followersCount: Int
+    followingCount: Int
+}

@@ -1,10 +1,10 @@
-package app.birdsocial.birdapi.birdapi
+package app.birdsocial.birdapi
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 @SpringBootApplication
-class BirdapiApplication
+class BirdApiApplication
 
 fun main(args: Array<String>) {
 	runApplication<BirdapiApplication>(*args)
