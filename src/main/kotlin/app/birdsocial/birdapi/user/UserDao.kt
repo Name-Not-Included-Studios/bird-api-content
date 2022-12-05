@@ -4,7 +4,6 @@ import java.util.*
 
 class UserDao(private val users: List<User>) {
     fun getUsers(): List<User> {
-        println("GET USERS DAO")
         return users
     }
 

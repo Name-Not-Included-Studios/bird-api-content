@@ -1,7 +1,7 @@
 type Query {
     ping: String @deprecated(reason: "https://stackoverflow.com/questions/59868942/graphql-a-schema-must-have-a-query-operation-defined")
-    getHello: String
-    users: [User]
+    getApiVersion: String
+    users(userArgs: UserArgs): [User]
 #    getUsers: [User]
 }
 
@@ -10,27 +10,27 @@ type Query {
 #    displayName: String
 #}
 
-#input UserInput {
-#    username: String
-#    displayName: String
-#    bio: String
-#    websiteUrl: String
-#    avatarUrl: String
-#    isVerified: Boolean
-#    chirpCount: Int
-#    followersCount: Int
-#    followingCount: Int
-#}
+input UserArgs {
+    username: String
+    displayName: String
+    bio: String
+    websiteUrl: String
+    avatarUrl: String
+    isVerified: Boolean
+    chirpCount: Int
+    followersCount: Int
+    followingCount: Int
+}
 
 type User {
     userId: ID!
     username: String!
-#    displayName: String!
-#    bio: String
-#    websiteUrl: String
-#    avatarUrl: String
-#    isVerified: Boolean
-#    chirpCount: Int
-#    followersCount: Int
-#    followingCount: Int
+    displayName: String!
+    bio: String
+    websiteUrl: String
+    avatarUrl: String
+    isVerified: Boolean
+    chirpCount: Int
+    followersCount: Int
+    followingCount: Int
 }

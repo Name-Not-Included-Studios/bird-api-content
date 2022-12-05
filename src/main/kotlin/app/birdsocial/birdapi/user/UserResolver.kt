@@ -1,16 +1,10 @@
 package app.birdsocial.birdapi
 
 import app.birdsocial.birdapi.user.User
+import app.birdsocial.birdapi.user.UserArgs
 import app.birdsocial.birdapi.user.UserDao
 import org.springframework.graphql.data.method.annotation.QueryMapping
-import org.springframework.graphql.data.method.annotation.SchemaMapping
 import org.springframework.stereotype.Controller
-import java.util.*
-
-//import org.springframework.web.context.request.RequestAttributes
-//import org.springframework.web.context.request.RequestContextHolder
-
-//import org.springframework.web.context.request.RequestAttributes.SCOPE_REQUEST
 
 //TODO Fix everything
 @Controller
@@ -18,10 +12,10 @@ class UserResolver(_userDao: UserDao) {
 	private val userDao: UserDao = _userDao
 
 	// This is the function that gets data from neo4j
+	//@SchemaMapping
 	@QueryMapping
 	fun users(): List<User> {
-		println("USERS SCHEMA MAPPING")
-		return userDao.getUsers();
+		return userDao.getUsers()
 	}
 
 
@@ -50,8 +44,8 @@ class UserResolver(_userDao: UserDao) {
     //     return userDao.getRecentPosts(count, offset);
 
     @QueryMapping
-	fun getHello(): String {
-		return "Hello"
+	fun getApiVersion(): String {
+		return "0.1-SNAPSHOT"
 //		val attributes: RequestAttributes? = RequestContextHolder.getRequestAttributes();
 //		return "Hello " + attributes.getAttribute(RequestAttributeFilter.NAME_ATTRIBUTE, SCOPE_REQUEST);
 	}

@@ -1,0 +1,11 @@
+(TYPE) [MODULE] MESSAGE
+
+# COMMIT MESSAGE TEMPLATE
+# (TYPE) [MODULE] MESSAGE
+
+# EXAMPLES
+# (Feat) [UserResolver] Added Full User Return
+
+# HOW TO USE
+# run this in the root of the repo
+# git config commit.template .gitmessage

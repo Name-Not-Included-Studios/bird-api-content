@@ -9,22 +9,20 @@ class UserConfig {
 
     @Bean
     fun userDao(): UserDao {
-        println("USER BEANS")
-
         val users: List<User> = List<User>(
             10
         ) { i ->
             User(
                 UUID.randomUUID(),
                 "username$i",
-//                "Display Name $i",
-//                "Bio $i",
-//                "websiteUrl/$i",
-//                "avatarUrl/$i",
-//                false,
-//                42069 + i,
-//                420 + i,
-//                69 + i
+                "Display Name $i",
+                "Bio $i",
+                "websiteUrl/$i",
+                "avatarUrl/$i",
+                false,
+                42069 + i,
+                420 + i,
+                69 + i
             )
         };
 

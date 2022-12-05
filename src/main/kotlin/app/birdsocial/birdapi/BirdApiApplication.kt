@@ -14,6 +14,5 @@ import org.springframework.boot.runApplication
 class BirdApiApplication {}
 
 fun main(args: Array<String>) {
-    println("MAIN ENTRYPOINT")
     runApplication<BirdApiApplication>(*args)
 }
