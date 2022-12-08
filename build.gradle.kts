@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "app.birdsocial.birdapi"
-version = "0.0.1-SNAPSHOT"
+version = "0.1-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_17
 
 repositories {
@@ -18,11 +18,18 @@ repositories {
 dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-graphql")
 	implementation("org.springframework.boot:spring-boot-starter-web")
+
 	implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+
     implementation("org.neo4j:neo4j-ogm-core:4.0.0")
     implementation("org.neo4j:neo4j-ogm-bolt-driver:4.0.0")
+
+	implementation("io.github.cdimascio:dotenv-kotlin:6.4.0")
+
+	implementation("com.bucket4j:bucket4j-core:8.1.1")
+
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework:spring-webflux")
 	testImplementation("org.springframework.graphql:spring-graphql-test")

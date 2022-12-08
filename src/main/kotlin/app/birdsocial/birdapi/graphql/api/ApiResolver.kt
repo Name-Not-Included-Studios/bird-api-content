@@ -1,10 +1,9 @@
-package app.birdsocial.birdapi.api
+package app.birdsocial.birdapi.graphql.api
 
 import org.springframework.graphql.data.method.annotation.QueryMapping
-import org.springframework.graphql.data.method.annotation.SchemaMapping
 import org.springframework.stereotype.Controller
 
-//TODO Bump Version (optional)
+// TODO Bump Version (optional)
 @Controller
 class ApiResolver {
     @QueryMapping

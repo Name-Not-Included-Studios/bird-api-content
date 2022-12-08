@@ -1,5 +1,6 @@
-package app.birdsocial.birdapi.user
+package app.birdsocial.birdapi.graphql.user
 
+import app.birdsocial.birdapi.neo4j.schemas.UserGQL
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.util.*
@@ -9,10 +10,10 @@ class UserConfig {
 
     @Bean
     fun userDao(): UserDao {
-        val users: List<User> = List<User>(
+        val users: List<UserGQL> = List<UserGQL>(
             10
         ) { i ->
-            User(
+            UserGQL(
                 UUID.randomUUID(),
                 "username$i",
                 "Display Name $i",
