@@ -1,7 +1,10 @@
-package app.birdsocial.birdapi.graphql.schemas.user
+package app.birdsocial.birdapi.graphql.types.user
 
+import app.birdsocial.birdapi.BirdApiApplication
 import app.birdsocial.birdapi.graphql.exceptions.BirdException
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
+import org.neo4j.ogm.cypher.ComparisonOperator
+import org.neo4j.ogm.cypher.Filter
 import org.neo4j.ogm.session.SessionFactory
 import org.springframework.graphql.data.method.annotation.Argument
 import org.springframework.graphql.data.method.annotation.MutationMapping
@@ -15,53 +18,147 @@ class UserResolver(val sessionFactory: SessionFactory) {
     // @SchemaMapping
     @QueryMapping
     fun getUsers(@Argument userSearch: UserSearch): List<User> {
-        if (true) { // BirdApiApplication.bucket.tryConsume(1)
-            val startTime = System.nanoTime()
+        if (!BirdApiApplication.bucket.tryConsume(1))
+            throw BirdException("You are sending too many requests, please wait and try again.")
 
-            // Begin Neo4J Session
-            val session = sessionFactory.openSession()
+        val startTime = System.nanoTime()
 
-            // Query and filter results from the database
-            val usersN4JUnfiltered = session.loadAll(UserNode::class.java).toList()
-            val filterTime = System.nanoTime()
-            val usersN4J =
-                    usersN4JUnfiltered.filter { user ->
-                        !((userSearch.username != null && userSearch.username != user.username) ||
-                                (userSearch.displayName != null &&
-                                        userSearch.displayName != user.displayName) ||
-                                (userSearch.bio != null && userSearch.bio != user.bio) ||
-                                (userSearch.isVerified != null &&
-                                        userSearch.isVerified != user.isVerified) ||
-                                (userSearch.chirpCount != null &&
-                                        userSearch.chirpCount != user.chirpCount) ||
-                                (userSearch.followersCount != null &&
-                                        userSearch.followersCount != user.followersCount) ||
-                                (userSearch.followingCount != null &&
-                                        userSearch.followingCount != user.followingCount))
-                    }
+        // Begin Neo4J Session
+        val session = sessionFactory.openSession()
 
-            // Convert Neo4j users to GraphQL users
-            val users: List<User> = usersN4J.map { user -> user.toUser() }
-            //			println("USER")
-            val endTime = System.nanoTime()
-            println(
-                    "T: ${(endTime-startTime)/1_000_000.0} D: ${(filterTime-startTime)/1_000_000.0} F: ${(endTime-filterTime)/1_000_000.0}"
-            )
+        // Generate Filters
+        val usernameEqualsFilter = if (userSearch.usernameEquals != null)
+            Filter("username", ComparisonOperator.EQUALS, userSearch.usernameEquals)
+        else
+            Filter("username", ComparisonOperator.EXISTS)
 
-            return users
-        }
+        val usernameContainsFilter = if (userSearch.usernameContains != null)
+            Filter("username", ComparisonOperator.CONTAINING, userSearch.usernameContains)
+        else
+            Filter("username", ComparisonOperator.EXISTS)
 
-        throw BirdException("You are sending too many requests, please wait and try again.")
+        val displayNameFilter = if (userSearch.displayName != null)
+            Filter("displayName", ComparisonOperator.CONTAINING, userSearch.displayName)
+        else
+            Filter("displayName", ComparisonOperator.EXISTS)
+
+        val bioFilter = if (userSearch.bio != null)
+            Filter("bio", ComparisonOperator.CONTAINING, userSearch.bio)
+        else
+            Filter("bio", ComparisonOperator.EXISTS)
+
+        val finalFilter = usernameEqualsFilter.and(usernameContainsFilter).and(displayNameFilter).and(bioFilter)
+
+        // Query and filter results from the database
+        val usersNodes: List<UserNode> = session.loadAll(UserNode::class.java, finalFilter).toList()
+
+        // Convert Neo4j users to GraphQL users
+        val users: List<User> = usersNodes.map { user -> user.toUser() }
+        val endTime = System.nanoTime()
+        println("GetUser T: ${(endTime - startTime) / 1_000_000.0}")
+
+        return users
+
     }
+
+//    @MutationMapping
+//    fun createUsers(@Argument num: Int): List<User> {
+//        if (!BirdApiApplication.bucket.tryConsume(0))
+//            throw BirdException("You are sending too many requests, please wait and try again.")
+//
+//        val startTime = System.nanoTime()
+//
+//        // Begin Neo4J Session
+//        val session = sessionFactory.openSession()
+//
+//        val userNode = UserNode(
+//            UUID.randomUUID().toString(),
+//            userCreate.email,
+//            userCreate.username,
+//            userCreate.displayName,
+//            userCreate.password,
+//            "",
+//            "",
+//            "",
+//            false,
+//            0,
+//            0,
+//            0
+//        )
+//
+//        session.save(userNode)
+//
+//        val endTime = System.nanoTime()
+//        println("CreateUser T: ${(endTime - startTime) / 1_000_000.0}")
+//
+//        return userNode.toUser()
+//    }
 
     @MutationMapping
     fun createUser(@Argument userCreate: UserCreate): User {
-        return User(
-            UUID.randomUUID(),
+        if (!BirdApiApplication.bucket.tryConsume(5))
+            throw BirdException("You are sending too many requests, please wait and try again.")
+
+        val startTime = System.nanoTime()
+
+        // Begin Neo4J Session
+        val session = sessionFactory.openSession()
+
+        val userNode = UserNode(
+            UUID.randomUUID().toString(),
             userCreate.email,
             userCreate.username,
             userCreate.displayName,
-            userCreate.password
+            userCreate.password,
+            "",
+            "",
+            "",
+            false,
+            0,
+            0,
+            0
         )
+
+        session.save(userNode)
+
+        val endTime = System.nanoTime()
+        println("CreateUser T: ${(endTime - startTime) / 1_000_000.0}")
+
+        return userNode.toUser()
+
+
+//        val tx = session.beginTransaction()
+//
+//        try {
+//            val userNode = UserNode(
+//                UUID.randomUUID().toString(),
+//                userCreate.email,
+//                userCreate.username,
+//                userCreate.displayName,
+//                userCreate.password,
+//                "",
+//                "",
+//                "",
+//                false,
+//                0,
+//                0,
+//                0
+//            )
+//
+//            tx.commit()
+//            session.save(userNode)
+//
+//            val endTime = System.nanoTime()
+//            println("CreateUser T: ${(endTime - startTime) / 1_000_000.0}")
+//
+//            return userNode.toUser()
+//        } catch (e: Exception) {
+//            tx.rollback()
+//            println("ROLLBACK: $e")
+//        } finally {
+//            tx.close()
+//        }
+//
+//        throw BirdException("There was an error saving your request.")
     }
 }

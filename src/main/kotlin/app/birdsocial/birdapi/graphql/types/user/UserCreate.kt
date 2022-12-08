@@ -1,4 +1,4 @@
-package app.birdsocial.birdapi.graphql.schemas.user
+package app.birdsocial.birdapi.graphql.types.user
 
 data class UserCreate (
     val username: String,
