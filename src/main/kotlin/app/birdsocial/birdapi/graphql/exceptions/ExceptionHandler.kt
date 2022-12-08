@@ -14,11 +14,11 @@ class ExceptionHandler : DataFetcherExceptionResolverAdapter() {
     override fun resolveToSingleError(ex: Throwable, env: DataFetchingEnvironment): GraphQLError? {
         return if (ex is BirdException) {
             GraphqlErrorBuilder.newError()
-                .errorType(ErrorType.ValidationError)
-                .message(ex.message)
-                .path(env.executionStepInfo.path)
-                .location(env.field.sourceLocation)
-                .build()
+                    .errorType(ErrorType.ValidationError)
+                    .message(ex.message)
+                    .path(env.executionStepInfo.path)
+                    .location(env.field.sourceLocation)
+                    .build()
         } else {
             null
         }
