@@ -30,6 +30,8 @@ dependencies {
 
 	implementation("com.bucket4j:bucket4j-core:8.1.1")
 
+	implementation("com.opencsv:opencsv:4.1")
+
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework:spring-webflux")
 	testImplementation("org.springframework.graphql:spring-graphql-test")

@@ -6,6 +6,8 @@ type Query {
 
 type Mutation {
     createUser(userCreate: UserCreate!): User
+#    createUsers(num: Int!): [User]
+    createUsers(num: Int!): String
 }
 
 input UserCreate {
