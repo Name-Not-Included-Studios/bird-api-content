@@ -1,9 +1,10 @@
-package app.birdsocial.birdapi.user
+package app.birdsocial.birdapi.graphql.user
 
-import java.util.*
+import app.birdsocial.birdapi.neo4j.schemas.UserGQL
+import app.birdsocial.birdapi.neo4j.schemas.UserN4J
 
-class UserDao(private val users: List<User>) {
-    fun getUsers(): List<User> {
+class UserDao(private val users: List<UserGQL>) {
+    fun getUsers(): List<UserGQL> {
         return users
     }
 

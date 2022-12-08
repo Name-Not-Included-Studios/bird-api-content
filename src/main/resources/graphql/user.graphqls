@@ -1,14 +1,17 @@
 type Query {
     ping: String @deprecated(reason: "https://stackoverflow.com/questions/59868942/graphql-a-schema-must-have-a-query-operation-defined")
-    getApiVersion: String
-    users(userArgs: UserArgs): [User]
-#    getUsers: [User]
+    apiStatus: apiStatus
+    users(userArgs: UserArgs!): [User]
 }
 
 #input UserInput {
 #    username: String
 #    displayName: String
 #}
+
+type apiStatus {
+    version: String!
+}
 
 input UserArgs {
     username: String
