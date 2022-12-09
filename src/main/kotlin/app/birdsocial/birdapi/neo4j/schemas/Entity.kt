@@ -7,7 +7,6 @@ import org.neo4j.ogm.annotation.NodeEntity
 @NodeEntity
 abstract class Entity {
     @Id
-    @GeneratedValue
     private val id: Long? = null
         get() = field
 }

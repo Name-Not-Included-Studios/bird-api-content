@@ -11,7 +11,6 @@ data class User(
     val bio: String = "",
     val websiteUrl: String = "",
     val avatarUrl: String = "",
-    val isVerified: Boolean = false,
     val chirpCount: Int = 0,
     val followersCount: Int = 0,
     val followingCount: Int = 0,

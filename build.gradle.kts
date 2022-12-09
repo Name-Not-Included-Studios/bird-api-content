@@ -32,6 +32,8 @@ dependencies {
 
 	implementation("com.opencsv:opencsv:4.1")
 
+	implementation("org.mindrot:jbcrypt:0.4")
+
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testImplementation("org.springframework:spring-webflux")
 	testImplementation("org.springframework.graphql:spring-graphql-test")
