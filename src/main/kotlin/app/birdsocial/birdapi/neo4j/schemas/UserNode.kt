@@ -15,6 +15,7 @@ data class UserNode (
         var username: String = "default",
         var displayName: String = "Default",
         var password: String = "",
+        var refreshToken: String = "",
         var lastLogin: LocalDateTime = LocalDateTime.now(),
         var creationDate: LocalDateTime = LocalDateTime.now(),
         var bio: String = "",

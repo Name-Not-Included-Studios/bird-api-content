@@ -1,5 +1,6 @@
 package app.birdsocial.birdapi
 
+import app.birdsocial.birdapi.middleware.UserAuthenticator
 import io.github.bucket4j.Bandwidth
 import io.github.bucket4j.Bucket
 import io.github.bucket4j.Refill
@@ -17,25 +18,8 @@ import java.time.Duration
     HibernateJpaAutoConfiguration::class
 ])
 
-class BirdApiApplication {
-    companion object {
-        val dotenv = dotenv()
-
-        private val limit = Bandwidth.classic(500, Refill.greedy(500, Duration.ofMinutes(15)));
-        val bucket = Bucket.builder()
-        .addLimit(limit)
-        .build();
-    }
-}
+class BirdApiApplication {}
 
 fun main(args: Array<String>) {
-//    val configuration: Configuration = Configuration.Builder()
-//        .uri("bolt://localhost")
-//        .credentials("neo4j", "password")
-//        .build()
-
-//    val sessionFactory = SessionFactory(configuration, "app.birdsocial.birdapi.domainclasses")
-
-
     runApplication<BirdApiApplication>(*args)
 }

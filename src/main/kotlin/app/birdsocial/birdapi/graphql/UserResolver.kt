@@ -1,7 +1,13 @@
-package app.birdsocial.birdapi.graphql.types.user
+package app.birdsocial.birdapi.graphql
 
-import app.birdsocial.birdapi.BirdApiApplication
+import app.birdsocial.birdapi.EnvironmentData
+import app.birdsocial.birdapi.graphql.exceptions.AuthException
 import app.birdsocial.birdapi.graphql.exceptions.BirdException
+import app.birdsocial.birdapi.graphql.exceptions.ThrottleRequestException
+import app.birdsocial.birdapi.graphql.types.user.User
+import app.birdsocial.birdapi.graphql.types.user.UserCreate
+import app.birdsocial.birdapi.graphql.types.user.UserLogin
+import app.birdsocial.birdapi.graphql.types.user.UserSearch
 import app.birdsocial.birdapi.neo4j.schemas.PostNode
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
 import com.opencsv.CSVReader
@@ -15,6 +21,7 @@ import org.springframework.graphql.data.method.annotation.MutationMapping
 import org.springframework.graphql.data.method.annotation.QueryMapping
 import org.springframework.stereotype.Controller
 import java.io.FileReader
+import java.time.LocalDateTime
 import java.util.*
 import kotlin.random.Random.Default.nextDouble
 import kotlin.random.Random.Default.nextInt
@@ -26,8 +33,8 @@ class UserResolver(val sessionFactory: SessionFactory) {
     // @SchemaMapping
     @QueryMapping
     fun getUsers(@Argument userSearch: UserSearch): List<User> {
-        if (!BirdApiApplication.bucket.tryConsume(1))
-            throw BirdException("You are sending too many requests, please wait and try again.")
+        if (!EnvironmentData.bucket.tryConsume(1))
+            throw ThrottleRequestException("You are sending too many requests, please wait and try again.")
 
         val startTime = System.nanoTime()
 
@@ -74,39 +81,166 @@ class UserResolver(val sessionFactory: SessionFactory) {
         return users
     }
 
-    fun login(userLogin: UserCreate): String {
-        if (!BirdApiApplication.bucket.tryConsume(50))
-            throw BirdException("You are sending too many requests, please wait and try again.")
+    fun login(userLogin: UserLogin): String {
+        if (!EnvironmentData.bucket.tryConsume(50))
+            throw ThrottleRequestException("You are sending too many requests, please wait and try again.")
 
         val time = measureTimeMillis {
-            // Begin Neo4J Session
-            val session = sessionFactory.openSession()
+            UserLoginService(userLogin)
 
-            val filter = Filter("email", ComparisonOperator.EQUALS, userLogin.email)
-            val userNodes: List<UserNode> = session.loadAll(UserNode::class.java, filter, Pagination(1, 10)).toList()
-
-            if (userNodes.size > 1)
-                throw BirdException("Server Error: Multiple Users")
-
-            val userNode = userNodes[0]
-
-            if (!BCrypt.checkpw(userLogin.password, userNode.password))
-                throw BirdException("Bad Password")
-
-
-
-            session.save(userNode)
+//            // Begin Neo4J Session
+//            val session = sessionFactory.openSession()
+//
+//            val filter = Filter("email", ComparisonOperator.EQUALS, userLogin.email)
+//            val userNodes: List<UserNode> = session.loadAll(UserNode::class.java, filter, Pagination(1, 5)).toList()
+//
+//            if (userNodes.size > 1)
+//                throw BirdException("Server Error: Multiple Users Returned")
+//
+//            val userNode = userNodes[0]
+//
+//            if (!BCrypt.checkpw(userLogin.password, userNode.password))
+//                throw AuthException()
+//
+//            userNode.lastLogin = LocalDateTime.now()
+//
+//            session.save(userNode)
         }
-        println("Login User T: $time")
+        println("Login User : ${time}ms")
 
         return "Login Successful"
     }
 
-    ///*
+    fun createUserRealistic(
+        users: MutableList<UserNode>,
+        totalDegree: Int,
+        username: String,
+        displayName: String
+    ): MutableList<UserNode> {
+
+        val userNode = UserNode(
+            UUID.randomUUID().toString(),
+            "$username@example.com",
+            username,
+            displayName,
+            BCrypt.hashpw("12345678", BCrypt.gensalt(12)),
+        )
+
+        // Print Current User
+//        println("CreateUser: ${users.size + 1}")
+
+        // Randomly add a follow based on popularity
+        if (users.size > 0) {
+            println("Add Following (Degree:$totalDegree)")
+            var idx = 0
+            var r: Int = nextInt(totalDegree)
+//            println("Starting (r:$r)")
+
+            while (idx < users.size - 1) {
+                r -= users[idx].followedBy.size
+//                println("(idx: $idx | r: $r)")
+                if (r <= 0.0) break
+                idx++
+            }
+//            println("Adding User (ID:$idx)")
+            val otherNode: UserNode = users[idx]
+            userNode.following.add(otherNode)
+            otherNode.followedBy.add(userNode)
+        }
+
+        // Randomly Create "Original" Root Posts (1-9) inclusive
+        for (j in 1 until nextInt(10)) {
+            val post = PostNode(
+                UUID.randomUUID().toString(),
+                "${userNode.displayName}'s Chrip #$j",
+                "The post body can be much longer, I love cheese"
+            )
+
+            userNode.authored.add(post)
+            post.authoredBy.add(userNode)
+        }
+
+        // Randomly add a reChirp based on following popularity [BROKEN: STACKOVERFLOW]
+//        if (users.size > 0) {
+//            println("Add Following (Degree:$totalDegree)")
+//            var idx = 0
+//            var r: Int = nextInt(totalDegree)
+//
+//            while (idx < users.size - 1) {
+//                r -= users[idx].followedBy.size
+//                if (r <= 0.0) break
+//                idx++
+//            }
+//            val otherUser: UserNode = users[idx]
+//
+//            // Get a random post by this user
+//            val otherPost: PostNode = otherUser.authored[nextInt(otherUser.authored.size)]
+//
+//            val post: PostNode = PostNode(
+//                UUID.randomUUID().toString(),
+//                "${userNode.displayName}'s re Chirp",
+//                "Wow, I literally hate you"
+//            )
+//
+//            // First set this post as "Authored" by this user
+//            userNode.authored.add(post)
+//            // Then set this post's parent
+//            post.parentPost = otherPost
+//            // Then add this post as one of the parent's children
+//            otherPost.childPosts.add(post)
+//        }
+
+        users.add(userNode)
+        return users
+    }
+
     @MutationMapping
     fun createUsers(@Argument num: Int): String {
-        if (!BirdApiApplication.bucket.tryConsume(2)) //200
-            throw BirdException("You are sending too many requests, please wait and try again.")
+        if (!EnvironmentData.bucket.tryConsume(2)) //200
+            throw ThrottleRequestException("You are sending too many requests, please wait and try again.")
+
+        val csvReader = CSVReader(FileReader("names.csv"))
+
+        val names = mutableListOf<String>()
+
+        // we are going to read data line by line
+        var nextRecord: Array<String>? = csvReader.readNext()
+        while (nextRecord != null) {
+            names.add(nextRecord[0])
+            nextRecord = csvReader.readNext()
+        }
+
+        var users = mutableListOf<UserNode>()
+//        val users = Collections.synchronizedList(mutableListOf<UserNode>()) // Thread Safe
+
+        var totalDegree: Int = 0
+
+        for (i in 0 until num) {
+            val name1 = names[nextInt(1080)]
+            val name2 = names[nextInt(1080)]
+            val username = "${name1.lowercase()}-${name2.lowercase()}"
+            val displayName = "${name1.uppercase()} ${name2.uppercase()}"
+
+            println("User : ${users.size + 1} : Time : ${measureTimeMillis{ users = createUserRealistic(users, totalDegree, username, displayName) }}")
+            println("-------------------------------")
+            totalDegree += 2
+        }
+
+        // Begin Neo4J Session
+        val session = sessionFactory.openSession()
+
+        session.save(users)
+
+//        println("CreateUsers T: ${(endTime - startTime) / 1_000_000.0}")
+
+        return "Success"
+    }
+
+    /*
+    @MutationMapping
+    fun createUsersOld(@Argument num: Int): String {
+        if (!EnvironmentData.bucket.tryConsume(2)) //200
+            throw ThrottleRequestException("You are sending too many requests, please wait and try again.")
 
         val startTime = System.nanoTime()
 
@@ -186,12 +320,12 @@ class UserResolver(val sessionFactory: SessionFactory) {
 
         return "Success"
     }
-    //*/
+    */
 
     @MutationMapping
     fun createUser(@Argument userCreate: UserCreate): User {
-        if (!BirdApiApplication.bucket.tryConsume(200))
-            throw BirdException("You are sending too many requests, please wait and try again.")
+        if (!EnvironmentData.bucket.tryConsume(200))
+            throw ThrottleRequestException("You are sending too many requests, please wait and try again.")
 
         val userNode: UserNode
 

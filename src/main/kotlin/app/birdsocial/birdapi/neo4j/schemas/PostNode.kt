@@ -10,11 +10,18 @@ data class PostNode (
     var postId: String = "00000000-0000-0000-0000-000000000000",
     var title: String = "Post Title",
     var body: String = "The post body can be much longer",
-    var likeCount: Int = 0
+    var likeCount: Int = 0,
+    var reChirpCount: Int = 0,
 ) {
     @Id @GeneratedValue
     var id: Long? = null
 
     @Relationship(type = "AUTHORED", direction = Relationship.Direction.INCOMING)
     var authoredBy: MutableList<UserNode> = mutableListOf()
+
+//    @Relationship(type = "PARENTED", direction = Relationship.Direction.INCOMING)
+//    var parentPost: PostNode = PostNode()
+//
+//    @Relationship(type = "PARENTED", direction = Relationship.Direction.OUTGOING)
+//    var childPosts: MutableList<PostNode> = mutableListOf()
 }
