@@ -10,6 +10,7 @@ import app.birdsocial.birdapi.graphql.types.user.UserLogin
 import app.birdsocial.birdapi.graphql.types.user.UserSearch
 import app.birdsocial.birdapi.neo4j.schemas.PostNode
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
+import app.birdsocial.birdapi.services.AuthService
 import com.opencsv.CSVReader
 import org.mindrot.jbcrypt.BCrypt
 import org.neo4j.ogm.cypher.ComparisonOperator
@@ -86,7 +87,7 @@ class UserResolver(val sessionFactory: SessionFactory) {
             throw ThrottleRequestException("You are sending too many requests, please wait and try again.")
 
         val time = measureTimeMillis {
-            UserLoginService(userLogin)
+            AuthService(userLogin)
 
 //            // Begin Neo4J Session
 //            val session = sessionFactory.openSession()

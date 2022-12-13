@@ -66,7 +66,7 @@ sensitive things like passwords and emails.
 ## User Dao
 
 This class is going to be replaced, but it stands in for a database.
-The name stands for User Data Object, and it is as basic as possible. It's constructor takes in a `val users: List<User>`
+The name stands for User Database Access Object, and it is as basic as possible. It's constructor takes in a `val users: List<User>`
 
 ## User Config
 
