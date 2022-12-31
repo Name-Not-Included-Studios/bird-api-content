@@ -1,6 +1,6 @@
-package app.birdsocial.birdapi.graphql.types.user
+package app.birdsocial.birdapi.graphql.types
 
-data class UserSearch(
+data class UserSearch_DEPRICATED(
     val usernameEquals: String?,
     val usernameContains: String?,
     val displayName: String?,

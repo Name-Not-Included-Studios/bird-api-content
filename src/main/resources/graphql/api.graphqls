@@ -1,3 +1,80 @@
-type apiStatus {
-    version: String!
+type User {
+    userId: ID!
+    username: String!
+    displayName: String!
+    bio: String!
+    websiteUrl: String!
+    avatarUrl: String!
+    isVerified: Boolean!
+    chirpCount: Int!
+    followersCount: Int!
+    followingCount: Int!
+}
+
+type Post {
+    postId: ID!
+    userId: ID!
+    content: String!
+    likesCount: Int!
+    isPublished: Boolean!
+    annotation: String
+    parentId: ID
+}
+
+input AuthInput {
+    email: String!
+    password: String!
+}
+
+input ProfileInput {
+    username: String
+    displayName: String
+    bio: String
+    websiteUrl: String
+    avatarUrl: String
+}
+
+input PostInput {
+    userId: ID!
+    content: String!
+    annotation: String
+    parentId: ID
+}
+
+input UserSearchCriteria {
+    usernameContains: String
+    usernameStartsWith: String
+    usernameEndsWith: String
+    followerCountGreaterThan: Int
+    followerCountLessThan: Int
+    bioContains: String
+    usernameFuzzySearch: String
+}
+
+type LoginResponse {
+    user: User!
+    access_token: String!
+    refresh_token: String!
+}
+
+type Query {
+    searchUsers(query: UserSearchCriteria!): [User]
+    getMe: User
+    getRefreshToken: String
+}
+
+type Mutation {
+    login(auth: AuthInput!): LoginResponse
+    createProfile(user: ProfileInput!): User
+    createAccount(auth: AuthInput!): LoginResponse
+    updateUser(user: ProfileInput!): User
+    deleteUser: User
+    createPost(post: PostInput!): Post
+    deletePost(postId: ID!): Post
+    annotatePost(post: PostInput!): Post
+    followUser(followerId: ID!): User
+    unfollowUser(followerId: ID!): User
+    likePost(postId: ID!): Post
+    unlikePost(postId: ID!): Post
+    updatePassword(password: String!): User
 }

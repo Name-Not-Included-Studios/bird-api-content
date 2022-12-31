@@ -19,7 +19,9 @@ That said, it should be quite clear that with the name **BirdSocial**, there is 
 
 # API Introduction
 
-This is where we begin writing the API, at this point the plan is to just *make it work* the best we can. We chose to write it in Kotlin as this would provide access to the neo4j
+This is where we begin writing the API, at this point the plan is to just *make it work* the best we can.
+This means that any best practices and conventions are out the window until I have a working prototype.
+We chose to write it in Kotlin as this would provide access to the neo4j.
 
 I started by following a [Spring Boot for GraphQL](https://docs.spring.io/spring-graphql/docs/current/reference/html/) tutorial. This got me up and running, [this article](https://www.baeldung.com/spring-graphql) by baeldung was also very useful, especially the [source code](https://github.com/eugenp/tutorials/tree/master/spring-boot-modules/spring-boot-graphql).
 

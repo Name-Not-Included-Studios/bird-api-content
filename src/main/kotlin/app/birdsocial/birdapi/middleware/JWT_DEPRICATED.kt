@@ -10,10 +10,10 @@ import com.auth0.jwt.exceptions.JWTVerificationException
 import com.auth0.jwt.interfaces.DecodedJWT
 import java.time.Duration
 import java.time.Instant
-import java.time.temporal.TemporalAmount
 
 
 // TODO Fix str ct
+
 //class UserAuthenticator {
 //    companion object {
 fun checkToken(token: String, refresh: Boolean): Boolean {
@@ -56,6 +56,9 @@ fun getToken(token: String, refresh: Boolean): DecodedJWT {
 }
 
 fun createAccessToken(jwt_refresh: String): String {
+    if (!checkToken(jwt_refresh, true))
+        throw AuthException()
+
     try {
         val algorithm = Algorithm.HMAC256(EnvironmentData.getData("JWT_ACCESS_SECRET"))
 

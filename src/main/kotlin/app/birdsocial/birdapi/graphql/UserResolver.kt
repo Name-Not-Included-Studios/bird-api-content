@@ -1,36 +1,80 @@
 package app.birdsocial.birdapi.graphql
 
 import app.birdsocial.birdapi.EnvironmentData
-import app.birdsocial.birdapi.graphql.exceptions.AuthException
-import app.birdsocial.birdapi.graphql.exceptions.BirdException
 import app.birdsocial.birdapi.graphql.exceptions.ThrottleRequestException
-import app.birdsocial.birdapi.graphql.types.user.User
-import app.birdsocial.birdapi.graphql.types.user.UserCreate
-import app.birdsocial.birdapi.graphql.types.user.UserLogin
-import app.birdsocial.birdapi.graphql.types.user.UserSearch
-import app.birdsocial.birdapi.neo4j.schemas.PostNode
-import app.birdsocial.birdapi.neo4j.schemas.UserNode
+import app.birdsocial.birdapi.graphql.types.*
 import app.birdsocial.birdapi.services.AuthService
-import com.opencsv.CSVReader
-import org.mindrot.jbcrypt.BCrypt
-import org.neo4j.ogm.cypher.ComparisonOperator
-import org.neo4j.ogm.cypher.Filter
-import org.neo4j.ogm.cypher.query.Pagination
 import org.neo4j.ogm.session.SessionFactory
-import org.springframework.graphql.data.method.annotation.Argument
 import org.springframework.graphql.data.method.annotation.MutationMapping
 import org.springframework.graphql.data.method.annotation.QueryMapping
 import org.springframework.stereotype.Controller
-import java.io.FileReader
-import java.time.LocalDateTime
 import java.util.*
-import kotlin.random.Random.Default.nextDouble
-import kotlin.random.Random.Default.nextInt
 import kotlin.system.measureTimeMillis
 
 @Controller
-class UserResolver(val sessionFactory: SessionFactory) {
-    // This is the function that gets data from neo4j
+class UserResolver(val sessionFactory: SessionFactory, val authService: AuthService) {
+
+//    @QueryMapping
+//    fun searchUsers(query: UserSearchCriteria): List<User> {}
+
+    @QueryMapping
+    fun getMe(): User {}
+
+    @QueryMapping
+    fun getRefreshToken: String {}
+
+    @MutationMapping
+    fun login(userLogin: AuthInput): Pair<String, String> {
+        if (!EnvironmentData.bucket.tryConsume(50))
+            throw ThrottleRequestException("You are sending too many requests, please wait and try again.")
+
+        val token: Pair<String, String>
+
+        val time = measureTimeMillis {
+            token = authService.login(userLogin)
+        }
+        println("Login User : ${time}ms")
+
+        return token
+    }
+
+    @MutationMapping
+    fun createProfile(user: ProfileInput): User {}
+
+    @MutationMapping
+    fun createAccount(auth: AuthInput): LoginResponse {}
+
+    @MutationMapping
+    fun updateUser(user: ProfileInput): User {}
+
+    @MutationMapping
+    fun deleteUser(): User {}
+
+    @MutationMapping
+    fun createPost(post: PostInput): Post {}
+
+    @MutationMapping
+    fun deletePost(postId: UUID): Post {}
+
+    @MutationMapping
+    fun annotatePost(post: PostInput): Post {}
+
+    @MutationMapping
+    fun followUser(followerId: UUID): User {}
+
+    @MutationMapping
+    fun unfollowUser(followerId: UUID): User {}
+
+    @MutationMapping
+    fun likePost(postId: UUID): Post {}
+
+    @MutationMapping
+    fun unlikePost(postId: UUID): Post {}
+
+    @MutationMapping
+    fun updatePassword(password: String): User {}
+
+    /*
     // @SchemaMapping
     @QueryMapping
     fun getUsers(@Argument userSearch: UserSearch): List<User> {
@@ -80,36 +124,6 @@ class UserResolver(val sessionFactory: SessionFactory) {
         println("FollowedBy: ${usersNodes[0].followedBy.size}")
 
         return users
-    }
-
-    fun login(userLogin: UserLogin): String {
-        if (!EnvironmentData.bucket.tryConsume(50))
-            throw ThrottleRequestException("You are sending too many requests, please wait and try again.")
-
-        val time = measureTimeMillis {
-            AuthService(userLogin)
-
-//            // Begin Neo4J Session
-//            val session = sessionFactory.openSession()
-//
-//            val filter = Filter("email", ComparisonOperator.EQUALS, userLogin.email)
-//            val userNodes: List<UserNode> = session.loadAll(UserNode::class.java, filter, Pagination(1, 5)).toList()
-//
-//            if (userNodes.size > 1)
-//                throw BirdException("Server Error: Multiple Users Returned")
-//
-//            val userNode = userNodes[0]
-//
-//            if (!BCrypt.checkpw(userLogin.password, userNode.password))
-//                throw AuthException()
-//
-//            userNode.lastLogin = LocalDateTime.now()
-//
-//            session.save(userNode)
-        }
-        println("Login User : ${time}ms")
-
-        return "Login Successful"
     }
 
     fun createUserRealistic(
@@ -237,92 +251,6 @@ class UserResolver(val sessionFactory: SessionFactory) {
         return "Success"
     }
 
-    /*
-    @MutationMapping
-    fun createUsersOld(@Argument num: Int): String {
-        if (!EnvironmentData.bucket.tryConsume(2)) //200
-            throw ThrottleRequestException("You are sending too many requests, please wait and try again.")
-
-        val startTime = System.nanoTime()
-
-        val csvReader = CSVReader(FileReader("names.csv"))
-
-        val names = mutableListOf<String>()
-
-        // we are going to read data line by line
-        var nextRecord: Array<String>? = csvReader.readNext()
-        while (nextRecord != null) {
-            names.add(nextRecord[0])
-            nextRecord = csvReader.readNext()
-        }
-
-        val users = mutableListOf<UserNode>()
-
-        var totalDegree: Int = 0
-
-        for (i in 0 until num) {
-            val name1 = names[nextInt(1080)]
-            val name2 = names[nextInt(1080)]
-
-            val userNode = UserNode(
-                UUID.randomUUID().toString(),
-                "${name1.lowercase()}-${name2.lowercase()}@example.com",
-                "${name1.lowercase()}-${name2.lowercase()}",
-                "${name1.uppercase()} ${name2.uppercase()}",
-                BCrypt.hashpw("12345678", BCrypt.gensalt(12)),
-            )
-
-            println("CreateUser: $i")
-
-            if (i > 1) {
-//                println("Add Other $totalDegree")
-                var idx = 0
-                var r: Double = nextDouble(totalDegree.toDouble())
-                while (idx < users.size - 1) {
-                    r -= users.get(idx).followedBy.size
-                    if (r <= 0.0) break
-                    ++idx
-                }
-                val otherNode: UserNode = users[idx]
-                userNode.following.add(otherNode)
-                otherNode.followedBy.add(userNode)
-                totalDegree += 2
-            } else if (i > 0) {
-//                println("Add Second $totalDegree")
-                val otherNode: UserNode = users[0]
-                userNode.following.add(otherNode)
-                otherNode.followedBy.add(userNode)
-                totalDegree += 2
-            } else {
-//                println("Add First $totalDegree")
-            }
-
-            for (j in 1 until nextInt(10)) {
-                val post = PostNode(
-                    UUID.randomUUID().toString(),
-                    "${userNode.displayName}'s Post $j",
-                    "The post body can be much longer, I love cheese"
-                )
-
-                userNode.authored.add(post)
-                post.authoredBy.add(userNode)
-            }
-
-            users.add(userNode)
-        }
-
-        // Begin Neo4J Session
-        val session = sessionFactory.openSession()
-
-        session.save(users)
-
-        val endTime = System.nanoTime()
-        println("CreateUsers T: ${(endTime - startTime) / 1_000_000.0}")
-
-        return "Success"
-    }
-    */
-
     @MutationMapping
     fun createUser(@Argument userCreate: UserCreate): User {
         if (!EnvironmentData.bucket.tryConsume(200))
@@ -393,4 +321,5 @@ class UserResolver(val sessionFactory: SessionFactory) {
 //
 //        throw BirdException("There was an error saving your request.")
     }
+    */
 }

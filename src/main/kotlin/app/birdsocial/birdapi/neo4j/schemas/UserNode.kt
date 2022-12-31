@@ -1,6 +1,6 @@
 package app.birdsocial.birdapi.neo4j.schemas
 
-import app.birdsocial.birdapi.graphql.types.user.User
+import app.birdsocial.birdapi.graphql.types.User
 import org.neo4j.ogm.annotation.GeneratedValue
 import org.neo4j.ogm.annotation.Id
 import java.util.*

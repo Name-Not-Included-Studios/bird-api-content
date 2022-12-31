@@ -1,10 +1,5 @@
 package app.birdsocial.birdapi
 
-import app.birdsocial.birdapi.middleware.UserAuthenticator
-import io.github.bucket4j.Bandwidth
-import io.github.bucket4j.Bucket
-import io.github.bucket4j.Refill
-import io.github.cdimascio.dotenv.dotenv
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration

@@ -2,23 +2,19 @@ package app.birdsocial.birdapi.services
 
 import app.birdsocial.birdapi.graphql.exceptions.AuthException
 import app.birdsocial.birdapi.graphql.exceptions.BirdException
-import app.birdsocial.birdapi.graphql.types.user.UserLogin
-import app.birdsocial.birdapi.middleware.checkToken
-import app.birdsocial.birdapi.middleware.createRefreshToken
+import app.birdsocial.birdapi.graphql.types.AuthInput
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
 import org.mindrot.jbcrypt.BCrypt
 import org.neo4j.ogm.cypher.ComparisonOperator
 import org.neo4j.ogm.cypher.Filter
 import org.neo4j.ogm.cypher.query.Pagination
 import org.neo4j.ogm.session.SessionFactory
-import org.springframework.graphql.data.method.annotation.QueryMapping
 import org.springframework.stereotype.Service
 import java.time.LocalDateTime
 
 @Service
-class AuthService(val sessionFactory: SessionFactory) {
-
-    fun login(userLogin: UserLogin): String {
+class AuthService(val sessionFactory: SessionFactory, val tokenService: TokenService) {
+    fun login(userLogin: AuthInput): Pair<String, String> {
 
         // Begin Neo4J Session
         val session = sessionFactory.openSession()
@@ -37,11 +33,10 @@ class AuthService(val sessionFactory: SessionFactory) {
         // Officially Proven Identity Here
         userNode.lastLogin = LocalDateTime.now()
 
-        if (!checkToken(userNode.refreshToken, true))
-            userNode.refreshToken = createRefreshToken()
+        if (!tokenService.checkToken(userNode.refreshToken, true))
+            userNode.refreshToken = tokenService.createRefreshToken()
 
         session.save(userNode)
-        return userNode.refreshToken
+        return Pair(userNode.refreshToken, tokenService.createAccessToken(userNode.refreshToken))
     }
-
 }
