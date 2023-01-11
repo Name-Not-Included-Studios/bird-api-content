@@ -1,13 +1,6 @@
 mutation {
-    createAccount(
-        auth: {
-            email:"example@example.com",
-            password:"Password1!"
-        }) {
-        user {
-            userId
-        }
-        access_token
-        refresh_token
+    deleteUser {
+        userId
+        username
     }
 }

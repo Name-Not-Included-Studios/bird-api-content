@@ -1,27 +1,26 @@
-package app.birdsocial.birdapi.neo4j
+package app.birdsocial.birdapi.config
 
-import app.birdsocial.birdapi.BirdApiApplication
-import app.birdsocial.birdapi.EnvironmentData
 import org.neo4j.ogm.config.Configuration
 import org.neo4j.ogm.session.SessionFactory
 import org.springframework.context.annotation.Bean
 
 @org.springframework.context.annotation.Configuration
-class Neo4jConfiguration {
+class Neo4jConfiguration(val envData: EnvironmentData) {
     @Bean
     fun getConfiguration(): Configuration {
+
         return Configuration.Builder()
-                .uri(EnvironmentData.getData("NEO4J_URI"))
+//            .uri(File("target/graph.db").toURI().toString()) // For Embedded
+                .uri(envData.getData("NEO4J_URI"))
                 .credentials(
-                    EnvironmentData.getData("NEO4J_USERNAME"),
-                    EnvironmentData.getData("NEO4J_PASSWORD")
+                    envData.getData("NEO4J_USERNAME"),
+                    envData.getData("NEO4J_PASSWORD")
                 )
                 .build()
     }
 
     @Bean
     fun getSessionFactory(config: Neo4jConfiguration): SessionFactory {
-        println("Beans")
         return SessionFactory(config.getConfiguration(), "app.birdsocial.birdapi.neo4j.schemas")
     }
 }

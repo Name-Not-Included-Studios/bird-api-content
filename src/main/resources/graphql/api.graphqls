@@ -5,7 +5,6 @@ type User {
     bio: String!
     websiteUrl: String!
     avatarUrl: String!
-    isVerified: Boolean!
     chirpCount: Int!
     followersCount: Int!
     followingCount: Int!
@@ -26,7 +25,8 @@ input AuthInput {
     password: String!
 }
 
-input ProfileInput {
+# Renamed for continuity "ProfileInput" to "UserInput"
+input UserInput {
     username: String
     displayName: String
     bio: String
@@ -34,8 +34,8 @@ input ProfileInput {
     avatarUrl: String
 }
 
+# Removed :userId: ID!", I will get it from access token
 input PostInput {
-    userId: ID!
     content: String!
     annotation: String
     parentId: ID
@@ -57,24 +57,37 @@ type LoginResponse {
     refresh_token: String!
 }
 
+type Content {
+    content: String
+}
+
 type Query {
+    apiVersion: ID!
     searchUsers(query: UserSearchCriteria!): [User]
     getMe: User
-    getRefreshToken: String
+    getAccessToken: String
+
+    getPost(postId: ID!): Post
+    getRecentPostsFromUser(userId: ID!, page: Int!, pageSize: Int!): [Post]
+    getTimeline(page: Int!, pageSize: Int!): [Post]
 }
 
 type Mutation {
     login(auth: AuthInput!): LoginResponse
-    createProfile(user: ProfileInput!): User
     createAccount(auth: AuthInput!): LoginResponse
-    updateUser(user: ProfileInput!): User
+
+    # Changed Return type of "User" to "LoginResponse" as we are basically doing the entire login procedure before changing the pw
+    updatePassword(oldPassword: String!, newPassword: String!): LoginResponse
+    updateUser(user: UserInput!): User
     deleteUser: User
     createPost(post: PostInput!): Post
     deletePost(postId: ID!): Post
-    annotatePost(post: PostInput!): Post
+
+    # Removed "PostInput!" because we don't want to have editable post bodies | Added annotation parameter
+    annotatePost(postId: String!, annotation: String!): Post
+
     followUser(followerId: ID!): User
     unfollowUser(followerId: ID!): User
     likePost(postId: ID!): Post
     unlikePost(postId: ID!): Post
-    updatePassword(password: String!): User
 }

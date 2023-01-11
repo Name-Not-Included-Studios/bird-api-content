@@ -1,6 +1,6 @@
 package app.birdsocial.birdapi.graphql.types
 
-data class ProfileInput (
+data class UserInput (
     val username: String?,
     val displayName: String?,
     val bio: String?,

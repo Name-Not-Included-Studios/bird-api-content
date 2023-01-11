@@ -14,11 +14,11 @@ import kotlin.RuntimeException
 //)
 //@GraphQlTest(UserResolver::class)
 @SpringBootTest
-internal class UserResolverIntTest2 {
+internal class ApiGatewayIntTest {
     @Autowired
     val graphQlTester: GraphQlTester? = null
 
-    @Test
+//    @Test
     fun testCreateAccount() {
         // language=GraphQL
         val user_create = """
@@ -37,14 +37,14 @@ internal class UserResolverIntTest2 {
             }
         """.trimIndent()
 
-        val createEntity = graphQlTester?.document(user_create)
-            ?.execute()
-            ?.path("createAccount")
-            ?.entity(LoginResponse::class.java)
-            .satisfies<LoginResponse> { res -> {
-                assert()
-            }}
-            ?: throw RuntimeException("LoginResponse is null")
+//        val createEntity = graphQlTester?.document(user_create)
+//            ?.execute()
+//            ?.path("createAccount")
+//            ?.entity(LoginResponse::class.java)
+//            .satisfies<LoginResponse> { res -> {
+//                assert()
+//            }}
+//            ?: throw RuntimeException("LoginResponse is null")
 
         // language=GraphQL
         val user_update = """

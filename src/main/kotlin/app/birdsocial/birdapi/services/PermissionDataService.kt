@@ -1,6 +1,6 @@
 package app.birdsocial.birdapi.services
 
-import app.birdsocial.birdapi.graphql.exceptions.BirdException
+import app.birdsocial.birdapi.exceptions.BirdException
 import app.birdsocial.birdapi.graphql.types.Post
 import app.birdsocial.birdapi.graphql.types.PostInput
 import app.birdsocial.birdapi.graphql.types.UserInput
@@ -15,8 +15,23 @@ import org.neo4j.ogm.session.SessionFactory
 import org.springframework.stereotype.Service
 import java.util.*
 
+/*
 @Service
 class PermissionDataService(val sessionFactory: SessionFactory) : DataService() {
+    fun setupPermissions(): Boolean {
+        val accountEnabled = PermissionNode("chirp.account.enabled")
+
+        val userFollow = PermissionNode("chirp.user.follow")
+
+        val postRead = PermissionNode("chirp.post.read")
+        val postCreate = PermissionNode("chirp.post.create")
+        val postCreateNewThread = PermissionNode("chirp.post.create.timeline")
+        val postCreateSubPost = PermissionNode("chirp.post.create.subpost")
+        val postAnnotate = PermissionNode("chirp.post.annotate")
+        val postLike = PermissionNode("chirp.post.like")
+        return true
+    }
+
     fun getPost(postId: String): Post {
         return getNode<PostNode>(postId, "postId", sessionFactory).toPost()
     }
@@ -55,3 +70,4 @@ class PermissionDataService(val sessionFactory: SessionFactory) : DataService() 
         session.delete(postNode) // TODO - may need to delete relations first
     }
 }
+*/

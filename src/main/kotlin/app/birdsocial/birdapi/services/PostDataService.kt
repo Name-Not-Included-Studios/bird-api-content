@@ -1,79 +1,74 @@
 package app.birdsocial.birdapi.services
 
-import app.birdsocial.birdapi.graphql.exceptions.BirdException
-import app.birdsocial.birdapi.graphql.types.UserInput
-import app.birdsocial.birdapi.graphql.types.User
+import app.birdsocial.birdapi.graphql.types.Post
+import app.birdsocial.birdapi.helper.SentryHelper
+import app.birdsocial.birdapi.neo4j.schemas.PostNode
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
-import org.mindrot.jbcrypt.BCrypt
-import org.neo4j.ogm.cypher.ComparisonOperator
 import org.neo4j.ogm.cypher.Filter
+import org.neo4j.ogm.cypher.Filters
 import org.neo4j.ogm.cypher.query.Pagination
 import org.neo4j.ogm.session.SessionFactory
 import org.springframework.stereotype.Service
 import java.util.*
 
 @Service
-class PostDataService(val sessionFactory: SessionFactory) {
-    fun getUser(userId: UUID): User {
-        return getUserNode(userId).toUser()
+class PostDataService(
+    val sessionFactory: SessionFactory,
+    val sentryHelper: SentryHelper,
+    ) : DataService() {
+    fun getPost(postId: String): Post {
+        return sentryHelper.span("neo4j", "getNode") { getNode<PostNode>(postId, "postId", sessionFactory).toPost() }
     }
 
-    private fun getUserNode(userId: UUID): UserNode {
+    fun getPost(filter: Filter, pagination: Pagination = Pagination(0, 25)): Post {
+        return getPosts(filter, pagination)[0]
+    }
+
+    fun getPost(filters: Filters, pagination: Pagination = Pagination(0, 25)): Post {
+        return getPosts(filters, pagination)[0]
+    }
+
+    fun getPosts(filter: Filter, pagination: Pagination = Pagination(0, 25)): List<Post> {
+        val session = sessionFactory.openSession()
+        return sentryHelper.span("neo4j", "loadAll") { session.loadAll(PostNode::class.java, filter, pagination).map { postNode -> postNode.toPost() } }
+    }
+
+    fun getPosts(filters: Filters, pagination: Pagination = Pagination(0, 25)): List<Post> {
+        val session = sessionFactory.openSession()
+        return sentryHelper.span("neo4j", "loadAll") { session.loadAll(PostNode::class.java, filters, pagination).map { postNode -> postNode.toPost() } }
+    }
+
+    fun createPost(authorId: String, content: String, annotation: String, parentPostId: String?): Post {
         // Begin Neo4J Session
         val session = sessionFactory.openSession()
 
-        val filter = Filter("userId", ComparisonOperator.EQUALS, userId.toString())
-        val userNodes: List<UserNode> = session.loadAll(UserNode::class.java, filter, Pagination(1, 5)).toList()
-
-        if (userNodes.size > 1)
-            throw BirdException("Server Error: Multiple Users Returned")
-
-        val userNode = userNodes[0]
-        return userNode
-    }
-
-    fun createUser(email: String, password: String): User {
-        // Begin Neo4J Session
-        val session = sessionFactory.openSession()
-
-        val user: UserNode = UserNode(
-            userId= UUID.randomUUID().toString(),
-            email= email,
-            password= BCrypt.hashpw(password, BCrypt.gensalt(12)),
+        val post = PostNode(
+            postId = UUID.randomUUID().toString(),
+            content = content,
+            annotation = annotation
         )
 
-        session.save(user)
-        return user.toUser()
+        post.authoredBy = sentryHelper.span("neo4j", "getNode") { getNode<UserNode>(authorId, "userId", sessionFactory) }
+
+        if(parentPostId != null)
+            post.parentPost = sentryHelper.span("neo4j", "getNode") { getNode<PostNode>(parentPostId, "postId", sessionFactory) }
+
+        sentryHelper.span("neo4j", "save") { session.save(post) }
+        return post.toPost()
     }
 
-    fun updateUser(userId: UUID, userInput: UserInput): User {
+    fun updatePostAnnotation(postId: String, annotation: String): Post {
         val session = sessionFactory.openSession()
 
-        val userNode = getUserNode(userId)
-
-        if(userInput.username != null)
-            userNode.username = userInput.username
-
-        if(userInput.displayName != null)
-            userNode.displayName = userInput.displayName
-
-        if(userInput.bio != null)
-            userNode.bio = userInput.bio
-
-        if(userInput.websiteUrl != null)
-            userNode.websiteUrl = userInput.websiteUrl
-
-        if(userInput.avatarUrl != null)
-            userNode.avatarUrl = userInput.avatarUrl
-
-        session.save(userNode)
-        return userNode.toUser()
+        val postNode = sentryHelper.span("neo4j", "getNode") { getNode<PostNode>(postId, "postId", sessionFactory) }
+        postNode.annotation = annotation
+        sentryHelper.span("neo4j", "save") { session.save(postNode) }
+        return postNode.toPost()
     }
 
-    fun deleteUser(userId: UUID): User {
+    fun deletePost(postId: String) {
         val session = sessionFactory.openSession()
-        val userNode = getUserNode(userId)
-        session.delete(userNode) // TODO - may need to delete relations first
-        return userNode.toUser()
+        val postNode = sentryHelper.span("neo4j", "getNode") { getNode<PostNode>(postId, "postId", sessionFactory) }
+        sentryHelper.span("neo4j", "delete") { session.delete(postNode) } // TODO - may need to delete relations first
     }
 }

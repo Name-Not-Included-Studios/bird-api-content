@@ -5,15 +5,33 @@ import org.neo4j.ogm.annotation.GeneratedValue
 import org.neo4j.ogm.annotation.Id
 import java.util.*
 import org.neo4j.ogm.annotation.NodeEntity
+import org.neo4j.ogm.annotation.Property
 import org.neo4j.ogm.annotation.Relationship
 import java.time.LocalDateTime
 
 @NodeEntity(label = "User")
+//data class UserNode (
+//        var userId: String,
+//        var email: String,
+//        var password: String,
+//        var refreshToken: String,
+//        var creationDate: LocalDateTime = LocalDateTime.now(),
+//) {
+//        @Property var username: String? = null
+//        @Property var displayName: String? = null
+//        @Property var lastLogin: LocalDateTime? = null
+//        @Property var bio: String? = null
+//        @Property var websiteUrl: String? = null
+//        @Property var avatarUrl: String? = null
+//        @Property var chirpCount: Int? = null
+//        @Property var followersCount: Int? = null
+//        @Property var followingCount: Int? = null
+
 data class UserNode (
         var userId: String = "00000000-0000-0000-0000-000000000000",
-        var email: String = "email@example.com",
-        var username: String = "default",
-        var displayName: String = "Default",
+        var email: String = "",
+        var username: String = "",
+        var displayName: String = "",
         var password: String = "",
         var refreshToken: String = "",
         var lastLogin: LocalDateTime = LocalDateTime.now(),
@@ -21,9 +39,6 @@ data class UserNode (
         var bio: String = "",
         var websiteUrl: String = "",
         var avatarUrl: String = "",
-        var chirpCount: Int = 0,
-        var followersCount: Int = 0,
-        var followingCount: Int = 0,
 ) {
         @Id @GeneratedValue
         var id: Long? = null
@@ -35,21 +50,25 @@ data class UserNode (
         var followedBy: MutableList<UserNode> = mutableListOf()
 
         @Relationship("AUTHORED")
-        var authored: MutableList<PostNode> = mutableListOf()
+        var posts: MutableList<PostNode> = mutableListOf()
+
+        @Relationship("LIKED", direction = Relationship.Direction.OUTGOING)
+        var liked: MutableList<PostNode> = mutableListOf()
+
+//        @Relationship("HAS_PERMISSION", direction = Relationship.Direction.OUTGOING)
+//        var hasPermission: MutableList<PermissionNode> = mutableListOf()
 
         fun toUser(): User {
                 return User(
-                        UUID.fromString(userId),
-                        email,
+                        userId,
                         username,
                         displayName,
-                        password,
                         bio,
                         websiteUrl,
                         avatarUrl,
-                        chirpCount,
-                        followersCount,
-                        followingCount
+                        posts.size,
+                        followedBy.size,
+                        following.size
                 )
         }
 }

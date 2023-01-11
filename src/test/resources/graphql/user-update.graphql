@@ -1,13 +1,16 @@
 mutation {
-    createAccount(
-        auth: {
-            email:"example@example.com",
-            password:"Password1!"
-        }) {
-        user {
-            userId
+    updateUser(
+        user: {
+            username: "testname"
+            displayName: "Test Name"
+            bio: "Test Bio"
+            avatarUrl: ""
+            websiteUrl: ""
         }
-        access_token
-        refresh_token
+    ) {
+        userId
+        username
+        displayName
+        bio
     }
 }
