@@ -1,49 +1,51 @@
 package app.birdsocial.birdapi.neo4j.schemas
 
-import app.birdsocial.birdapi.graphql.types.content.Content
 import app.birdsocial.birdapi.graphql.types.Post
-import org.neo4j.ogm.annotation.GeneratedValue
-import org.neo4j.ogm.annotation.Id
-import org.neo4j.ogm.annotation.NodeEntity
-import org.neo4j.ogm.annotation.Relationship
+import org.springframework.data.neo4j.core.schema.GeneratedValue
+import org.springframework.data.neo4j.core.schema.Id
+import org.springframework.data.neo4j.core.schema.Node
+import org.springframework.data.neo4j.core.schema.Property
+import org.springframework.data.neo4j.core.schema.Relationship
+import org.springframework.data.neo4j.core.support.UUIDStringGenerator
 import java.time.LocalDateTime
+import java.util.*
 
-@NodeEntity(label = "Post")
-data class PostNode (
-    var postId: String = "00000000-0000-0000-0000-000000000000",
+@Node("Post")
+data class PostNode(
+    @Id @GeneratedValue(UUIDStringGenerator::class) val id: String,
 //    var content: List<String> = listOf(), // TODO - Change to content
-    var content: String = "",
-    var annotation: String = "",
-    var annotationDate: LocalDateTime = LocalDateTime.now(),
-    var creationDate: LocalDateTime = LocalDateTime.now(),
+    @Property val content: String,
+    @Property var annotation: String,
+    @Property var annotationDate: LocalDateTime,
+    @Property var creationDate: LocalDateTime,
 ) {
-    @Id @GeneratedValue
-    var id: Long? = null
-
     @Relationship(type = "AUTHORED", direction = Relationship.Direction.INCOMING)
-//    lateinit var authoredBy: UserNode
-    var authoredBy: UserNode? = null
-
-    @Relationship(type = "PARENTED", direction = Relationship.Direction.INCOMING)
-//    lateinit var parentPost: PostNode
+    var authors: MutableList<UserNode> = mutableListOf()
+    @Relationship(type = "SUB_POST", direction = Relationship.Direction.INCOMING)
     var parentPost: PostNode? = null
-
-
-    @Relationship(type = "PARENTED", direction = Relationship.Direction.OUTGOING)
+    @Relationship(type = "SUB_POST", direction = Relationship.Direction.OUTGOING)
     var childPosts: MutableList<PostNode> = mutableListOf()
-
-    @Relationship("LIKED", direction = Relationship.Direction.INCOMING)
+    @Relationship(type = "LIKED", direction = Relationship.Direction.INCOMING)
     var likedBy: MutableList<UserNode> = mutableListOf()
 
     fun toPost(): Post {
         return Post(
-            postId,
-            authoredBy?.userId ?: "", // TODO - make it a list of authors
+            id,
+//            authoredBy?.id ?: throw BirdException("No Author"),
+            authors.first().id,
             content,
             likedBy.size,
             true,
             annotation,
-            parentPost?.postId,
+            parentPost?.id,
         )
+    }
+
+    fun save(): Boolean {
+        TODO("Not yet implemented")
+    }
+
+    fun delete(): Boolean {
+        TODO("Not yet implemented")
     }
 }

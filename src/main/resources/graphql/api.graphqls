@@ -65,7 +65,7 @@ type Query {
     apiVersion: ID!
     searchUsers(query: UserSearchCriteria!): [User]
     getMe: User
-    getAccessToken: String
+    refresh: String
 
     getPost(postId: ID!): Post
     getRecentPostsFromUser(userId: ID!, page: Int!, pageSize: Int!): [Post]
@@ -79,7 +79,7 @@ type Mutation {
     # Changed Return type of "User" to "LoginResponse" as we are basically doing the entire login procedure before changing the pw
     updatePassword(oldPassword: String!, newPassword: String!): LoginResponse
     updateUser(user: UserInput!): User
-    deleteUser: User
+    deleteUser(auth: AuthInput!): Boolean
     createPost(post: PostInput!): Post
     deletePost(postId: ID!): Post
 

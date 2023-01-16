@@ -1,12 +1,7 @@
 package app.birdsocial.birdapi.neo4j.schemas
 
 import app.birdsocial.birdapi.graphql.types.User
-import org.neo4j.ogm.annotation.GeneratedValue
-import org.neo4j.ogm.annotation.Id
 import java.util.*
-import org.neo4j.ogm.annotation.NodeEntity
-import org.neo4j.ogm.annotation.Property
-import org.neo4j.ogm.annotation.Relationship
 import java.time.LocalDateTime
 
 /*

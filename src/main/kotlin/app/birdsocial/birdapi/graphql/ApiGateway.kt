@@ -1,108 +1,125 @@
 package app.birdsocial.birdapi.graphql
 
-import app.birdsocial.birdapi.config.EnvironmentData
-import app.birdsocial.birdapi.exceptions.AuthException
-import app.birdsocial.birdapi.exceptions.BirdException
-import app.birdsocial.birdapi.exceptions.ThrottleRequestException
+import app.birdsocial.birdapi.exceptions.*
 import app.birdsocial.birdapi.graphql.types.*
 import app.birdsocial.birdapi.helper.SentryHelper
-import app.birdsocial.birdapi.services.AuthService
-import app.birdsocial.birdapi.services.PostDataService
-import app.birdsocial.birdapi.services.TokenService
-import app.birdsocial.birdapi.services.UserDataService
+import app.birdsocial.birdapi.neo4j.repo.Neo4jRepository
+import app.birdsocial.birdapi.neo4j.repo.PostRepository
+import app.birdsocial.birdapi.neo4j.repo.UserRepository
+import app.birdsocial.birdapi.neo4j.schemas.PostNode
+import app.birdsocial.birdapi.neo4j.schemas.UserNode
+import app.birdsocial.birdapi.services.*
+import io.github.bucket4j.local.LocalBucket
 //import io.sentry.spring.tracing.SentrySpan
 //import io.sentry.spring.tracing.SentryTransaction
 import jakarta.servlet.http.HttpServletRequest
-import org.neo4j.ogm.cypher.ComparisonOperator
-import org.neo4j.ogm.cypher.Filter
-import org.neo4j.ogm.cypher.query.Pagination
+import org.mindrot.jbcrypt.BCrypt
+import org.neo4j.cypherdsl.core.Cypher
 import org.passay.*
+import org.springframework.data.neo4j.core.Neo4jTemplate
 import org.springframework.graphql.data.method.annotation.Argument
 import org.springframework.graphql.data.method.annotation.MutationMapping
 import org.springframework.graphql.data.method.annotation.QueryMapping
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Controller
+import java.time.LocalDateTime
 import java.util.*
 
 
 @Controller
 class ApiGateway(
     val request: HttpServletRequest,
-    val envData: EnvironmentData,
-    val sentryHelper: SentryHelper,
 
+    val userRepository: UserRepository,
+    val postRepository: PostRepository,
+    val neo4jRepository: Neo4jRepository,
+    val neo4j: Neo4jTemplate,
+
+    val bucket: LocalBucket,
+    val sentry: SentryHelper,
     val authService: AuthService,
     val tokenService: TokenService,
-    val userDataService: UserDataService,
-    val postDataService: PostDataService,
-//    val permissionDataService: PermissionDataService,
 ) {
-
     @QueryMapping
     fun apiVersion(): String = captureQueryTransaction {
-        return@captureQueryTransaction "1.0"
+        return "0.0.2"
     }
 
-    @QueryMapping
-    fun searchUsers(@Argument query: UserSearchCriteria): List<User> = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(1))
+//    @QueryMapping
+//    fun searchUsers(@Argument query: UserSearchCriteria): List<User> = captureQueryTransaction {
+//        if (!envData.bucket.tryConsume(1))
+//            throw ThrottleRequestException()
+//
+//        val usernameContainsFilter = Filter("username", ComparisonOperator.CONTAINING, query.usernameContains)
+//        val usernameStartsWithFilter =
+//            Filter("username", ComparisonOperator.STARTING_WITH, query.usernameStartsWith)
+//        val usernameEndsWithFilter = Filter("username", ComparisonOperator.ENDING_WITH, query.usernameEndsWith)
+//        val usernameFollowerCountGreaterThanFilter =
+//            Filter("followersCount", ComparisonOperator.GREATER_THAN_EQUAL, query.followerCountGreaterThan)
+//        val usernameFollowerCountLessThanFilter =
+//            Filter("followersCount", ComparisonOperator.LESS_THAN_EQUAL, query.followerCountLessThan)
+//        val bioContainsFilter = Filter("bio", ComparisonOperator.CONTAINING, query.bioContains)
+//        val usernameFuzzyFilter =
+//            Filter("username", ComparisonOperator.LIKE, query.usernameFuzzySearch) // TODO - Change to Fuzzy Search
+//
+//        val filter = usernameContainsFilter.and(usernameStartsWithFilter)
+//            .and(usernameEndsWithFilter).and(usernameFollowerCountGreaterThanFilter)
+//            .and(usernameFollowerCountLessThanFilter).and(bioContainsFilter).and(usernameFuzzyFilter)
+//
+//        return sentryHelper.span("user-srv", "getUsers") { userDataService.getUsers(filter) }
+//    }
+
+    private fun throttleRequest(numTokens: Long) {
+        println("Tokens: ${bucket.availableTokens}")
+
+        if (!bucket.tryConsume(numTokens))
             throw ThrottleRequestException()
+    }
 
-        val usernameContainsFilter = Filter("username", ComparisonOperator.CONTAINING, query.usernameContains)
-        val usernameStartsWithFilter =
-            Filter("username", ComparisonOperator.STARTING_WITH, query.usernameStartsWith)
-        val usernameEndsWithFilter = Filter("username", ComparisonOperator.ENDING_WITH, query.usernameEndsWith)
-        val usernameFollowerCountGreaterThanFilter =
-            Filter("followersCount", ComparisonOperator.GREATER_THAN_EQUAL, query.followerCountGreaterThan)
-        val usernameFollowerCountLessThanFilter =
-            Filter("followersCount", ComparisonOperator.LESS_THAN_EQUAL, query.followerCountLessThan)
-        val bioContainsFilter = Filter("bio", ComparisonOperator.CONTAINING, query.bioContains)
-        val usernameFuzzyFilter =
-            Filter("username", ComparisonOperator.LIKE, query.usernameFuzzySearch) // TODO - Change to Fuzzy Search
-
-        val filter = usernameContainsFilter.and(usernameStartsWithFilter)
-            .and(usernameEndsWithFilter).and(usernameFollowerCountGreaterThanFilter)
-            .and(usernameFollowerCountLessThanFilter).and(bioContainsFilter).and(usernameFuzzyFilter)
-
-        return@captureQueryTransaction sentryHelper.span("user-srv", "getUsers") { userDataService.getUsers(filter) }
+    private fun authorize(): String {
+        // Get Authorization Header
+        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
+        // Get User ID from refresh token (also checks if signature is valid)
+        return sentry.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
     }
 
     @QueryMapping
     fun getMe(): User = captureQueryTransaction {
-        println("Tokens: ${envData.bucket.availableTokens}")
-        if (!envData.bucket.tryConsume(1))
-            throw ThrottleRequestException()
+        // Check if too many requests
+        throttleRequest(1)
 
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        val token = sentryHelper.span("tkn-srv", "getToken") { tokenService.getToken(access, false) }
-        println("Query - getMe() - Payload: ${token.audience[0]}")
+//        // Get Authorization Header
+//        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
+//        // Get User ID from refresh token (also checks if signature is valid)
+//        val userId = sentry.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
 
-        return@captureQueryTransaction sentryHelper.span(
-            "user-srv",
-            "getUser"
-        ) { userDataService.getUser(token.audience[0]) }
+        // Get userId from authorization token
+        val userId = authorize()
+
+        // Get User from Database
+        return neo4jRepository.findOneById<UserNode>("User", userId).toUser()
     }
 
-    // TODO - Fix t ck
+    // TODO - Fix ck
     @QueryMapping
-    fun getAccessToken(): String = captureQueryTransaction {
-        println("Tokens: ${envData.bucket.availableTokens}")
-
+    fun refresh(): String = captureQueryTransaction {
         // Check if too many requests
-        if (!envData.bucket.tryConsume(50))
-            throw ThrottleRequestException()
+        throttleRequest(50)
 
-        // User Sent Request
+        // Get Authorization Header
         val refresh = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
         // Get User ID from refresh token (also checks if signature is valid)
-        val userId = sentryHelper.span("tkn-srv", "getToken") { tokenService.getToken(refresh, true).audience[0] }
-        // Get DB Refresh Token
-        val storedRefresh = sentryHelper.span("user-srv", "getRefreshToken") { userDataService.getRefreshToken(userId) }
+        val userId = sentry.span("tkn-srv", "getToken") { tokenService.getToken(refresh, true).audience[0] }
 
+        // Get DB Refresh Token
+        val storedRefresh = neo4jRepository.findOneById<UserNode>("User", userId).refreshToken
+
+        // Check Token against database
         if (refresh != storedRefresh)
             throw AuthException()
 
-        return@captureQueryTransaction sentryHelper.span(
+        // Create Access Token Based on the Refresh Token
+        return sentry.span(
             "tkn-srv",
             "createAccessToken"
         ) { tokenService.createAccessToken(refresh) }
@@ -110,44 +127,57 @@ class ApiGateway(
 
     @MutationMapping
     fun login(@Argument auth: AuthInput): LoginResponse = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(50))
-            throw ThrottleRequestException()
+        // Check if too many requests
+        throttleRequest(50)
 
-        sentryHelper.span("compute", "checkPasswordValidity") { checkPasswordValidity(auth.password) }
+        // Check password for repetitions, sequences, length, etc
+        sentry.span("compute", "checkPasswordValidity") { checkPasswordStupidity(auth.password) }
 
-        return@captureQueryTransaction sentryHelper.span("auth-srv", "login") { authService.login(auth) }
+        return sentry.span("auth-srv", "login") { authService.login(auth) }
     }
 
     @MutationMapping
     fun createAccount(@Argument auth: AuthInput): LoginResponse = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(200))
-            throw ThrottleRequestException()
+        // Check if too many requests
+        throttleRequest(200)
 
-        sentryHelper.span("compute", "checkPasswordValidity") { checkPasswordValidity(auth.password) }
+        // Check password for repetitions, sequences, length, etc
+        sentry.span("compute", "checkPasswordValidity") { checkPasswordStupidity(auth.password) }
 
-        if (sentryHelper.span("user-srv", "getUsers") {
-                userDataService.getUsers(
-                    Filter(
-                        "email",
-                        ComparisonOperator.EQUALS,
-                        auth.email
-                    )
-                ).isNotEmpty()
-            })
-            throw BirdException("Email Already in Use")
+        // Check that no other user has this email
+        sentry.span("neo4j", "getUser") {
+            if (neo4jRepository.findAllByParam<UserNode>("User", "email", auth.email, 0, 2).isNotEmpty())
+                throw BirdException("Email Already in Use")
+        }
 
+        // Create userId and refresh token
         val userId = UUID.randomUUID().toString()
         val refresh = tokenService.createRefreshToken(userId)
 
-        return@captureQueryTransaction LoginResponse(
-            sentryHelper.span("user-srv", "createUser") {
-                userDataService.createUser(
-                    userId,
-                    auth.email,
-                    auth.password
-                )
+        // Generate node based on user information
+        val userNode = UserNode(
+            userId,
+            auth.email,
+            "",
+            "",
+            auth.password,
+            refresh,
+            LocalDateTime.now(),
+            LocalDateTime.now(),
+            "",
+            "",
+            "",
+//            mutableListOf(),
+//            mutableListOf(),
+//            mutableListOf(),
+//            mutableListOf(),
+        )
+
+        return LoginResponse(
+            sentry.span("user-srv", "createUser") {
+                userRepository.save<UserNode>(userNode).toUser()
             },
-            sentryHelper.span("tkn-srv", "createAccessToken") { tokenService.createAccessToken(refresh) },
+            sentry.span("tkn-srv", "createAccessToken") { tokenService.createAccessToken(refresh) },
             refresh
         )
     }
@@ -157,15 +187,21 @@ class ApiGateway(
         @Argument oldPassword: String,
         @Argument newPassword: String
     ): LoginResponse = captureQueryTransaction {
+        // Check if too many requests
+        throttleRequest(200)
 
-        if (!envData.bucket.tryConsume(200))
-            throw ThrottleRequestException()
+        // Check password for repetitions, sequences, length, etc
+        sentry.span("compute", "checkPasswordValidity") { checkPasswordStupidity(newPassword) }
 
-        sentryHelper.span("compute", "checkPasswordValidity") { checkPasswordValidity(newPassword) }
+        // Must actually change password
+        if (sentry.span("compute", "checkpw") { oldPassword == newPassword })
+            throw BirdException("You Must Change The Password")
 
+        // Get access token
         val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
 
-        return@captureQueryTransaction sentryHelper.span("auth-srv", "updatePassword") {
+        // Update Password
+        return sentry.span("auth-srv", "updatePassword") {
             authService.updatePassword(
                 oldPassword,
                 newPassword,
@@ -174,147 +210,9 @@ class ApiGateway(
         }
     }
 
-    @MutationMapping
-    fun deleteUser(): User = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(350))
-            throw ThrottleRequestException()
-
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        val userId = tokenService.getToken(access, false).audience[0]
-        return@captureQueryTransaction sentryHelper.span(
-            "user-srv",
-            "deleteUser"
-        ) { userDataService.deleteUser(userId) } // TODO - Should require password?
-    }
-
-    @MutationMapping
-    fun createPost(
-        @Argument post: PostInput
-    ): Post = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(10)) // TODO - Add tokens for image size
-            throw ThrottleRequestException()
-
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        val userId = sentryHelper.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
-        return@captureQueryTransaction sentryHelper.span("post-srv", "createPost") {
-            postDataService.createPost(
-                userId,
-                post.content,
-                post.annotation ?: "",
-                post.parentId
-            )
-        }
-    }
-
-    @MutationMapping
-    fun deletePost(
-        @Argument postId: String
-    ): Post = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(5))
-            throw ThrottleRequestException()
-
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        val userId = tokenService.getToken(access, false).audience[0]
-        val post = sentryHelper.span("post-srv", "getPost") { postDataService.getPost(postId) }
-
-        if (post.userId == userId)
-            sentryHelper.span("post-srv", "deletePost") { postDataService.deletePost(postId) }
-
-        return@captureQueryTransaction post
-    }
-
-    @MutationMapping
-    fun annotatePost(
-        @Argument postId: String,
-        @Argument annotation: String
-    ): Post = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(5))
-            throw ThrottleRequestException()
-
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        if (sentryHelper.span("tkn-srv", "checkToken") { tokenService.checkToken(access, false) })
-            throw AuthException()
-
-        return@captureQueryTransaction sentryHelper.span(
-            "post-srv",
-            "updatePostAnnotation"
-        ) { postDataService.updatePostAnnotation(postId, annotation) }
-    }
-
-    @MutationMapping
-    fun followUser(
-        @Argument followerId: String
-    ): User = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(1))
-            throw ThrottleRequestException()
-
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        val userId = sentryHelper.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
-        return@captureQueryTransaction sentryHelper.span("post-srv", "setFollowUser") {
-            userDataService.setFollowUser(
-                userId,
-                followerId,
-                true
-            )
-        }
-    }
-
-    @MutationMapping
-    fun unfollowUser(
-        @Argument followerId: String
-    ): User = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(1))
-            throw ThrottleRequestException()
-
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        val userId = sentryHelper.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
-        return@captureQueryTransaction sentryHelper.span("user-srv", "setFollowUser") {
-            userDataService.setFollowUser(
-                userId,
-                followerId,
-                false
-            )
-        }
-    }
-
-    @MutationMapping
-    fun likePost(
-        @Argument postId: String
-    ): Post = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(1))
-            throw ThrottleRequestException()
-
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        val userId = sentryHelper.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
-        return@captureQueryTransaction sentryHelper.span("user-srv", "setLikedPost") {
-            userDataService.setLikedPost(
-                userId,
-                postId,
-                true
-            )
-        }
-    }
-
-    @MutationMapping
-    fun unlikePost(
-        @Argument postId: String
-    ): Post = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(1))
-            throw ThrottleRequestException()
-
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        val userId = sentryHelper.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
-        return@captureQueryTransaction sentryHelper.span("user-srv", "setLikedPost") {
-            userDataService.setLikedPost(
-                userId,
-                postId,
-                false
-            )
-        }
-    }
-
-    fun checkPasswordValidity(password: String): Boolean {
-        val validator = sentryHelper.span("compute", "createPasswordValidator") {
+    fun checkPasswordStupidity(password: String): Boolean {
+        // Create Validator
+        val validator = sentry.span("compute", "createPasswordValidator") {
             PasswordValidator(
                 // TODO - DictionaryRule
                 LengthRule(8, 32),
@@ -332,64 +230,333 @@ class ApiGateway(
             )
         }
 
-        val passwordResult = sentryHelper.span("compute", "validate") { validator.validate(PasswordData(password)) }
+        // Validate
+        val passwordResult = sentry.span("compute", "validate") { validator.validate(PasswordData(password)) }
 
+        // If not valid, tell user why
         if (!passwordResult.isValid)
             throw BirdException("Password Not Valid: ${validator.getMessages(passwordResult)}")
 
         return true
     }
 
+    // deleteUser() requires access token as well as email and password
+    @MutationMapping
+    fun deleteUser(@Argument auth: AuthInput): Boolean =
+        // Check if too many requests
+        captureQueryTransaction { // TODO - Leaves us with nothing to track down bad actors
+            throttleRequest(350)
+
+            // Get userId from authorization token
+            val userId = authorize()
+
+            // Using login functionality to ensure that the user has correct authentication
+            val userToDelete = sentry.span(
+                "user-srv",
+                "login"
+            ) {
+                authService.login(auth).user.userId
+            }
+
+            // Check given id matches the database
+            if (userId != userToDelete)
+                throw AuthException()
+
+            // Delete User by this id
+            sentry.span<Boolean>(
+                "user-srv",
+                "deleteUser"
+            ) {
+                userRepository.deleteById(userToDelete)
+                return true
+            }
+        }
+
+    @MutationMapping
+    fun createPost(
+        @Argument post: PostInput
+    ): Post = captureQueryTransaction {
+        // Check if too many requests
+        throttleRequest(10)
+//        if (!envData.bucket.tryConsume(10)) // TODO - Add tokens for image size
+//            throw ThrottleRequestException()
+
+        // Get userId from authorization token
+        val userId = authorize()
+
+        // Get me from database
+        val user = neo4jRepository.findOneById<UserNode>("User", userId)
+
+        // Create PostNode
+        val postNode = PostNode(
+            UUID.randomUUID().toString(),
+            post.content,
+            post.annotation ?: "",
+            LocalDateTime.now(),
+            LocalDateTime.now(),
+//            user,
+//            null,
+//            mutableListOf(),
+//            mutableListOf(),
+        )
+
+//        user.posts.add(postNode)
+        postNode.authors.add(user)
+
+        // Save post to the database
+//        sentry.span("userRepository", "save") {
+//            userRepository.save(user)
+//        }
+
+        return sentry.span("postRepository", "save") {
+            postRepository.save(postNode).toPost()
+        }
+    }
+
+    @MutationMapping
+    fun deletePost( // TODO - change to 'visible = false'
+        @Argument postId: String
+    ): Post = captureQueryTransaction {
+        // Check if too many requests
+        throttleRequest(5)
+
+        // Get userId from authorization token
+        val userId = authorize()
+
+        // Get post from database
+        val post = neo4jRepository.findOneById<PostNode>("Post", postId)
+
+        // If I didn't author this post (list of authors to search)
+        if (post.authors.any { user -> user.id == userId })
+            throw AuthException() // Shouldn't happen unless someone tries to delete another users post
+//        if (post.authoredBy.id == userId)
+//            throw AuthException() // Shouldn't happen unless someone tries to delete another users post
+
+        // Delete it
+        sentry.span("postRepository", "delete") { postRepository.delete(post) }
+
+        return post.toPost()
+    }
+
+    @MutationMapping
+    fun annotatePost(
+        @Argument postId: String,
+        @Argument annotation: String
+    ): Post = captureQueryTransaction {
+        // Check if too many requests
+        throttleRequest(5)
+
+        // Get userId from authorization token
+        val userId = authorize()
+
+        val post = neo4jRepository.findOneById<PostNode>("Post", postId)
+
+        // If I didn't author this post (list of authors to search)
+        if (post.authors.any { user -> user.id == userId })
+            throw AuthException() // Shouldn't happen unless someone tries to delete another users post
+
+        // Set annotation data
+        post.annotation = annotation
+        post.annotationDate = LocalDateTime.now()
+
+        // Save changes to database
+        sentry.span("postRepository", "save") { postRepository.save(post) }
+
+        return post.toPost()
+    }
+
+    @MutationMapping
+    fun followUser(
+        @Argument followerId: String
+    ): User {//= captureQueryTransaction {
+        // Check if too many requests
+        throttleRequest(1)
+
+        // Get userId from authorization token
+        val userId = authorize()
+
+        // Get me from database
+        val user = neo4jRepository.findOneById<UserNode>("User", userId)
+
+        // Get followee from database
+        val followee = neo4jRepository.findOneById<UserNode>("User", followerId)
+
+        // Set my following status
+        user.following.add(followee)
+//        followee.followedBy.add(user)
+
+        // Save changes to database
+        userRepository.save(user)
+//        userRepository.save(followee)
+
+        return followee.toUser()
+    }
+
+    @MutationMapping
+    fun unfollowUser(
+        @Argument followerId: String
+    ): User {// = captureQueryTransaction {
+        // Check if too many requests
+        throttleRequest(1)
+
+        // Get userId from authorization token
+        val userId = authorize()
+
+        // Get me from database
+        val user = neo4jRepository.findOneById<UserNode>("User", userId)
+
+        // Get followee from database
+        val followee = neo4jRepository.findOneById<UserNode>("User", followerId)
+
+        // Remove followee from my following list
+        user.following.remove(followee)
+//        followee.followedBy.remove(user)
+
+        // Save changes to database
+        userRepository.save(user)
+//        userRepository.save(followee)
+
+        return followee.toUser()
+    }
+
+    @MutationMapping
+    fun likePost(
+        @Argument postId: String
+    ): Post = captureQueryTransaction {
+        // Check if too many requests
+        throttleRequest(1)
+
+        // Get userId from authorization token
+        val userId = authorize()
+
+        // Get me from database
+        val user = neo4jRepository.findOneById<UserNode>("User", userId)
+
+        // Get desired post from database
+        val post = neo4jRepository.findOneById<PostNode>("Post", postId)
+
+        // Set desired like status
+        user.liked.add(post)
+//        post.likedBy.add(user)
+
+        // Save changes to database
+        userRepository.save(user)
+//        postRepository.save(post)
+
+        return post.toPost()
+    }
+
+    @MutationMapping
+    fun unlikePost(
+        @Argument postId: String
+    ): Post = captureQueryTransaction {
+        // Check if too many requests
+        throttleRequest(1)
+
+        // Get userId from authorization token
+        val userId = authorize()
+
+        // Get me from database
+        val user = neo4jRepository.findOneById<UserNode>("User", userId)
+
+        // Get desired post from database
+        val post = neo4jRepository.findOneById<PostNode>("Post", postId)
+
+        // Set desired like status
+        user.liked.remove(post)
+//        post.likedBy.remove(user)
+
+        // Save changes to database
+        userRepository.save(user)
+//        postRepository.save(post)
+
+        return post.toPost()
+    }
+
     @QueryMapping
     fun getPost(
         @Argument postId: String
     ): Post = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(1))
-            throw ThrottleRequestException()
+        // Check if too many requests
+        throttleRequest(1)
 
-        return@captureQueryTransaction sentryHelper.span("post-srv", "getPost") { postDataService.getPost(postId) }
+        // Get post from database
+        return neo4jRepository.findOneById<PostNode>("Post", postId).toPost()
     }
 
     @MutationMapping
     fun updateUser(
         @Argument user: UserInput
     ): User = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(5))
-            throw ThrottleRequestException()
+        // Check if too many requests
+        throttleRequest(5)
 
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        val token = tokenService.getToken(access, false)
-        val userID = token.audience[0]
+        // Get userId from authorization token
+        val userId = authorize()
 
-        return@captureQueryTransaction sentryHelper.span("user-srv", "updateUser") {
-            userDataService.updateUser(
-                userID,
-                user
-            )
+        // Get me from database
+        val userNode = neo4jRepository.findOneById<UserNode>("User", userId)
+
+        // If user supplied a new username
+        if (user.username != null) {
+            // Find any user in database with the username supplied
+
+            if (neo4jRepository.findAllByParam<UserNode>("User", "username", user.username, 0, 1).isNotEmpty())
+                throw BirdException("Username Already in Use") // TODO - custom exception
+
+            // Set node username
+            userNode.username = user.username
         }
+
+        // If user supplied a new displayName, set it
+        if (user.displayName != null)
+            userNode.displayName = user.displayName
+
+        // If user supplied a new bio, set it
+        if (user.bio != null)
+            userNode.bio = user.bio
+
+        // If user supplied a new websiteUrl, set it
+        if (user.websiteUrl != null)
+            userNode.websiteUrl = user.websiteUrl
+
+        // If user supplied a new avatarUrl, set it
+        if (user.avatarUrl != null)
+            userNode.avatarUrl = user.avatarUrl
+
+        // Save changes to database
+        userRepository.save(userNode)
+
+        return userNode.toUser()
     }
 
     //    @SentryTransaction(operation = "operation-name")
-//    @SentrySpan(operation = "task-name")
+    //    @SentrySpan(operation = "task-name")
     @QueryMapping
     fun getRecentPostsFromUser(
         @Argument userId: String,
         @Argument page: Int,
         @Argument pageSize: Int
     ): List<Post> = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(5))
-            throw ThrottleRequestException()
+        // Check if too many requests
+        throttleRequest(5)
 
+        // Limit page size
         val pageSizeLimited = if (pageSize > 25) 25 else pageSize
 
-        return sentryHelper.span("user-srv", "getUserPosts") {
-            userDataService.getUserPosts(
-                userId,
-                page,
-                pageSizeLimited
-            )
+        sentry.span<Nothing>("neo4j", "getPost") {
+            // MATCH (:User {id:$userId})-[:AUTHORED]->(post:Post) RETURN post SKIP ${page * pageSizeLimited} LIMIT $pageSizeLimited
+            val user = Cypher.node("User").withProperties(mapOf(Pair("id", userId)))
+            val post = Cypher.node("Post").named("post")
+            val request = Cypher.match(user.relationshipTo(post, "AUTHORED"))
+                .returning(post)
+                .skip(page * pageSizeLimited)
+                .limit(pageSizeLimited)
+                .build()
+
+            println(request.cypher)
+            return neo4j.findAll(request.cypher, PostNode::class.java).map { p -> p.toPost() }
         }
-        // return captureTransactionDatabase { userDataService.getUserPosts(userId, page, pageSizeLimited) }
     }
 
     @QueryMapping
@@ -397,22 +564,37 @@ class ApiGateway(
         @Argument page: Int,
         @Argument pageSize: Int,
     ): List<Post> = captureQueryTransaction {
-        if (!envData.bucket.tryConsume(5))
-            throw ThrottleRequestException()
+        // Check if too many requests
+        throttleRequest(20) // was 5
 
+        // Limit page size
         val pageSizeLimited = if (pageSize > 25) 25 else pageSize
 
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        val token = tokenService.getToken(access, false)
-        val userID = token.audience[0]
+        // Get userId from authorization token
+        val userId = authorize()
 
-        return sentryHelper.span("user-srv", "getFollowedPosts") {
-            userDataService.getFollowedPosts(userID, page, pageSizeLimited)
+        sentry.span<Nothing>("user-srv", "getFollowedPosts") {
+            // MATCH (me:User {id:$userId})-[:FOLLOWING]->(:User)->[:AUTHORED]->(posts:Post) RETURN posts SKIP ${page * pageSizeLimited} LIMIT $pageSizeLimited
+            val me = Cypher.node("User")
+                .named("me")
+                .withProperties(mapOf(Pair("id", userId)))
+            val users = Cypher.node("User")
+            val posts = Cypher.node("Post").named("posts")
+
+            val request = Cypher.match(
+                me.relationshipTo(users, "FOLLOWING")
+                    .relationshipTo(posts, "AUTHORED")
+            ).returning(posts)
+                .skip(page * pageSizeLimited)
+                .limit(pageSizeLimited)
+                .build()
+
+            return neo4j.findAll(request, PostNode::class.java).map { p -> p.toPost() }
         }
     }
 
     private final inline fun <T> captureQueryTransaction(body: () -> T): T {
-        return sentryHelper.span(Thread.currentThread().stackTrace[1].methodName, "http", body)
+        return sentry.span(Thread.currentThread().stackTrace[1].methodName, "http", body)
     }
 
     /*

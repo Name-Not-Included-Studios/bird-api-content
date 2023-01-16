@@ -1,15 +1,11 @@
 package app.birdsocial.birdapi.neo4j.schemas
 
 import app.birdsocial.birdapi.graphql.types.User
-import org.neo4j.ogm.annotation.GeneratedValue
-import org.neo4j.ogm.annotation.Id
-import java.util.*
-import org.neo4j.ogm.annotation.NodeEntity
-import org.neo4j.ogm.annotation.Property
-import org.neo4j.ogm.annotation.Relationship
+import org.springframework.data.neo4j.core.schema.*
+import org.springframework.data.neo4j.core.support.UUIDStringGenerator
 import java.time.LocalDateTime
 
-@NodeEntity(label = "User")
+//@NodeEntity(label = "User")
 //data class UserNode (
 //        var userId: String,
 //        var email: String,
@@ -27,40 +23,32 @@ import java.time.LocalDateTime
 //        @Property var followersCount: Int? = null
 //        @Property var followingCount: Int? = null
 
+@Node("User")
 data class UserNode (
-        var userId: String = "00000000-0000-0000-0000-000000000000",
-        var email: String = "",
-        var username: String = "",
-        var displayName: String = "",
-        var password: String = "",
-        var refreshToken: String = "",
-        var lastLogin: LocalDateTime = LocalDateTime.now(),
-        var creationDate: LocalDateTime = LocalDateTime.now(),
-        var bio: String = "",
-        var websiteUrl: String = "",
-        var avatarUrl: String = "",
+        @Id @GeneratedValue(UUIDStringGenerator::class) val id: String,
+        @Property var email: String,
+        @Property var username: String,
+        @Property var displayName: String,
+        @Property var password: String,
+        @Property var refreshToken: String,
+        @Property var lastLogin: LocalDateTime,
+        @Property var creationDate: LocalDateTime,
+        @Property var bio: String,
+        @Property var websiteUrl: String,
+        @Property var avatarUrl: String,
 ) {
-        @Id @GeneratedValue
-        var id: Long? = null
-
-        @Relationship("FOLLOWING", direction = Relationship.Direction.OUTGOING)
+        @Relationship(type = "FOLLOWING", direction = Relationship.Direction.OUTGOING)
         var following: MutableList<UserNode> = mutableListOf()
-
         @Relationship(type = "FOLLOWING", direction = Relationship.Direction.INCOMING)
         var followedBy: MutableList<UserNode> = mutableListOf()
-
-        @Relationship("AUTHORED")
+        @Relationship(type = "AUTHORED", direction = Relationship.Direction.OUTGOING)
         var posts: MutableList<PostNode> = mutableListOf()
-
-        @Relationship("LIKED", direction = Relationship.Direction.OUTGOING)
+        @Relationship(type = "LIKED", direction = Relationship.Direction.OUTGOING)
         var liked: MutableList<PostNode> = mutableListOf()
-
-//        @Relationship("HAS_PERMISSION", direction = Relationship.Direction.OUTGOING)
-//        var hasPermission: MutableList<PermissionNode> = mutableListOf()
 
         fun toUser(): User {
                 return User(
-                        userId,
+                        id,
                         username,
                         displayName,
                         bio,
@@ -70,5 +58,13 @@ data class UserNode (
                         followedBy.size,
                         following.size
                 )
+        }
+
+        fun save(): Boolean {
+                TODO("Not yet implemented")
+        }
+
+        fun delete(): Boolean {
+                TODO("Not yet implemented")
         }
 }
