@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+spring:
+  graphql:
+    graphql:
+      cors:
+        allowed-origin-patterns: "*"
+    graphiql:
+      enabled: true
+      path: /graphiql
+  neo4j:
+    uri: "${NEO4J_URI}"
+    authentication.username: "${NEO4J_USERNAME}"
+    authentication.password: "${NEO4J_PASSWORD}"
+
+logging:
+  level:
+    org:
+      neo4j:
+        driver: INFO

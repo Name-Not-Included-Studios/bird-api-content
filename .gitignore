@@ -39,6 +39,4 @@ out/
 
 ### Spring ###
 /*.env
-**/application.properties
-**/application.yaml
 #/dev.env
