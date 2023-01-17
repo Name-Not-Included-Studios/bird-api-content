@@ -3,9 +3,7 @@ package app.birdsocial.birdapi.graphql.resolvers
 import app.birdsocial.birdapi.exceptions.*
 import app.birdsocial.birdapi.graphql.types.*
 import app.birdsocial.birdapi.helper.SentryHelper
-import app.birdsocial.birdapi.neo4j.repo.Neo4jRepository
-import app.birdsocial.birdapi.neo4j.repo.PostRepository
-import app.birdsocial.birdapi.neo4j.repo.UserRepository
+import app.birdsocial.birdapi.neo4j.repo.*
 import app.birdsocial.birdapi.neo4j.schemas.PostNode
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
 import app.birdsocial.birdapi.services.*
@@ -25,6 +23,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Controller
 import java.time.Instant
 import java.util.*
+import java.util.regex.Pattern
 
 
 @Controller
@@ -34,7 +33,9 @@ class ApiGateway(
 
     val userRepository: UserRepository,
     val postRepository: PostRepository,
-    val neo4jRepository: Neo4jRepository,
+//    val neo4JService: Neo4jService,
+    val userService: UserService,
+    val postService: PostService,
     val neo4j: Neo4jTemplate,
 
     val sentry: SentryHelper,
@@ -81,8 +82,12 @@ class ApiGateway(
         // Get userId from authorization token
         val userId = tokenService.authorize(request)
 
+        val user = userService.findOneById(userId)
+
+        println("Posts: ${user.posts}")
+
         // Get User from Database
-        return neo4jRepository.findOneById<UserNode>("User", userId).toUser()
+        return user.toUser()
     }
 
     // TODO - Fix ck
@@ -97,7 +102,7 @@ class ApiGateway(
         val userId = sentry.span("tkn-srv", "getToken") { tokenService.getToken(refresh, true).audience[0] }
 
         // Get DB Refresh Token
-        val storedRefresh = neo4jRepository.findOneById<UserNode>("User", userId).refreshToken
+        val storedRefresh = userService.findOneById(userId).refreshToken
 
         // Check Token against database
         if (refresh != storedRefresh)
@@ -127,12 +132,26 @@ class ApiGateway(
         // Check if too many requests
         api.throttleRequest(200)
 
+        // Check email is actually a valid email
+        val EMAIL_ADDRESS_PATTERN = Pattern.compile(
+            "[a-zA-Z0-9\\+\\.\\_\\%\\-\\+]{1,256}" +
+                    "\\@" +
+                    "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,64}" +
+                    "(" +
+                    "\\." +
+                    "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,25}" +
+                    ")+"
+        )
+
+        if (!EMAIL_ADDRESS_PATTERN.matcher(auth.email).matches())
+            throw BirdException("Must be valid email address")
+
         // Check password for repetitions, sequences, length, etc
         sentry.span("compute", "checkPasswordValidity") { checkPasswordStupidity(auth.password) }
 
         // Check that no other user has this email
         sentry.span("neo4j", "getUser") {
-            if (neo4jRepository.findAllByParam<UserNode>("User", "email", auth.email, 0, 2).isNotEmpty())
+            if (userService.findAllByParam("email", auth.email, 0, 2).isNotEmpty())
                 throw BirdException("Email Already in Use")
         }
 
@@ -156,10 +175,6 @@ class ApiGateway(
             "",
             "",
             "",
-//            mutableListOf(),
-//            mutableListOf(),
-//            mutableListOf(),
-//            mutableListOf(),
         )
 
         val tokenData = tokenService.createAccessToken(refresh)
@@ -277,7 +292,7 @@ class ApiGateway(
         val userId = tokenService.authorize(request)
 
         // Get me from database
-        val user = neo4jRepository.findOneById<UserNode>("User", userId)
+        val user = userService.findOneById(userId)
 
         // Create PostNode
         val postNode = PostNode(
@@ -316,7 +331,7 @@ class ApiGateway(
         val userId = tokenService.authorize(request)
 
         // Get post from database
-        val post = neo4jRepository.findOneById<PostNode>("Post", postId)
+        val post = postService.findOneById(postId)
 
         // If I didn't author this post (list of authors to search)
         if (post.authors.any { user -> user.id == userId })
@@ -341,7 +356,7 @@ class ApiGateway(
         // Get userId from authorization token
         val userId = tokenService.authorize(request)
 
-        val post = neo4jRepository.findOneById<PostNode>("Post", postId)
+        val post = postService.findOneById(postId)
 
         // If I didn't author this post (list of authors to search)
         if (post.authors.any { user -> user.id == userId })
@@ -368,10 +383,10 @@ class ApiGateway(
         val userId = tokenService.authorize(request)
 
         // Get me from database
-        val user = neo4jRepository.findOneById<UserNode>("User", userId)
+        val user = userService.findOneById(userId)
 
         // Get followee from database
-        val followee = neo4jRepository.findOneById<UserNode>("User", followerId)
+        val followee = userService.findOneById(followerId)
 
         // Set my following status
         user.following.add(followee)
@@ -395,10 +410,10 @@ class ApiGateway(
         val userId = tokenService.authorize(request)
 
         // Get me from database
-        val user = neo4jRepository.findOneById<UserNode>("User", userId)
+        val user = userService.findOneById(userId)
 
         // Get followee from database
-        val followee = neo4jRepository.findOneById<UserNode>("User", followerId)
+        val followee = userService.findOneById(followerId)
 
         // Remove followee from my following list
         user.following.remove(followee)
@@ -422,10 +437,10 @@ class ApiGateway(
         val userId = tokenService.authorize(request)
 
         // Get me from database
-        val user = neo4jRepository.findOneById<UserNode>("User", userId)
+        val user = userService.findOneById(userId)
 
         // Get desired post from database
-        val post = neo4jRepository.findOneById<PostNode>("Post", postId)
+        val post = postService.findOneById(postId)
 
         // Set desired like status
         user.liked.add(post)
@@ -449,10 +464,10 @@ class ApiGateway(
         val userId = tokenService.authorize(request)
 
         // Get me from database
-        val user = neo4jRepository.findOneById<UserNode>("User", userId)
+        val user = userService.findOneById(userId)
 
         // Get desired post from database
-        val post = neo4jRepository.findOneById<PostNode>("Post", postId)
+        val post = postService.findOneById(postId)
 
         // Set desired like status
         user.liked.remove(post)
@@ -473,7 +488,7 @@ class ApiGateway(
         api.throttleRequest(1)
 
         // Get post from database
-        return neo4jRepository.findOneById<PostNode>("Post", postId).toPost()
+        return postService.findOneById(postId).toPost()
     }
 
     @MutationMapping
@@ -487,13 +502,13 @@ class ApiGateway(
         val userId = tokenService.authorize(request)
 
         // Get me from database
-        val userNode = neo4jRepository.findOneById<UserNode>("User", userId)
+        val userNode = userService.findOneById(userId)
 
         // If user supplied a new username
         if (user.username != null) {
             // Find any user in database with the username supplied
 
-            if (neo4jRepository.findAllByParam<UserNode>("User", "username", user.username, 0, 1).isNotEmpty())
+            if (userService.findAllByParam("username", user.username, 0, 1).isNotEmpty())
                 throw BirdException("Username Already in Use") // TODO - custom exception
 
             // Set node username

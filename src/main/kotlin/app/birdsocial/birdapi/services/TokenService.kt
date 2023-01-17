@@ -26,7 +26,6 @@ class TokenService(
     final fun authorize(request: HttpServletRequest): String {
         // Get Authorization Header
         val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        println("Access: ($access)")
         // Get User ID from refresh token (also checks if signature is valid)
         return sentry.span("tkn-srv", "getToken") { getToken(access, false).audience[0] }
     }

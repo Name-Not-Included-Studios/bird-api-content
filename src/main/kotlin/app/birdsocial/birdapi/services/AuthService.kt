@@ -1,21 +1,18 @@
 package app.birdsocial.birdapi.services
 
 import app.birdsocial.birdapi.exceptions.AuthException
-import app.birdsocial.birdapi.exceptions.BirdException
-import app.birdsocial.birdapi.exceptions.ResourceNotFoundException
 import app.birdsocial.birdapi.graphql.types.AuthInput
 import app.birdsocial.birdapi.graphql.types.LoginResponse
 import app.birdsocial.birdapi.helper.SentryHelper
-import app.birdsocial.birdapi.neo4j.repo.Neo4jRepository
+import app.birdsocial.birdapi.neo4j.repo.Neo4jService
 import app.birdsocial.birdapi.neo4j.repo.UserRepository
+import app.birdsocial.birdapi.neo4j.repo.UserService
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
-import org.joda.time.DateTime
 import org.mindrot.jbcrypt.BCrypt
 import org.springframework.core.env.Environment
 import org.springframework.core.env.get
 import org.springframework.stereotype.Service
 import java.time.Instant
-import java.time.LocalDateTime
 
 @Service
 class AuthService(
@@ -23,14 +20,15 @@ class AuthService(
     val env: Environment,
     val tokenService: TokenService,
 
-    val neo4jRepository: Neo4jRepository,
+//    val neo4JService: Neo4jService,
+    val userService: UserService,
     val userRepository: UserRepository
 ) {
 
     fun login(userLogin: AuthInput): LoginResponse { // TODO - Change from LoginResponse to something else as LoginResponse is a GraphQL type
         try {
             // Get user from database with same email
-            val userNode = neo4jRepository.findOneByParam<UserNode>("User", "email", userLogin.email)
+            val userNode = userService.findOneByParam("email", userLogin.email)
 
             // Check password matches
             if (!sentry.span("compute", "checkpw") { BCrypt.checkpw(userLogin.password, userNode.password) })
@@ -67,7 +65,7 @@ class AuthService(
         val userId = sentry.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
 
         // (2) Get Email from database using UserID
-        val userNode = neo4jRepository.findOneById<UserNode>("User", userId)
+        val userNode = userService.findOneById(userId)
 
         // (3) Check Old Password
         if (!sentry.span("compute", "checkpw") { BCrypt.checkpw(oldPassword, userNode.password) })
