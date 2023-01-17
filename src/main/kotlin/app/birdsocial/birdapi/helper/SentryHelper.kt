@@ -9,6 +9,10 @@ import org.springframework.stereotype.Component
 
 @Component
 class SentryHelper {
+    final inline fun <T> captureTransaction(body: () -> T): T {
+        return span(Thread.currentThread().stackTrace[1].methodName, "http", body)
+    }
+
     final inline fun <T> captureExceptionsOnly(body: () -> T): T =
         try {
             body()

@@ -7,7 +7,7 @@ import org.springframework.data.neo4j.core.schema.Node
 import org.springframework.data.neo4j.core.schema.Property
 import org.springframework.data.neo4j.core.schema.Relationship
 import org.springframework.data.neo4j.core.support.UUIDStringGenerator
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.*
 
 @Node("Post")
@@ -16,8 +16,8 @@ data class PostNode(
 //    var content: List<String> = listOf(), // TODO - Change to content
     @Property val content: String,
     @Property var annotation: String,
-    @Property var annotationDate: LocalDateTime,
-    @Property var creationDate: LocalDateTime,
+    @Property var annotationDate: Instant,
+    @Property var creationDate: Instant,
 ) {
     @Relationship(type = "AUTHORED", direction = Relationship.Direction.INCOMING)
     var authors: MutableList<UserNode> = mutableListOf()

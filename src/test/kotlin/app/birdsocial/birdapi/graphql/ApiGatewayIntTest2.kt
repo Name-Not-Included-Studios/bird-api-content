@@ -1,9 +1,9 @@
 package app.birdsocial.birdapi.graphql
 
+import app.birdsocial.birdapi.graphql.resolvers.ApiGateway
 import app.birdsocial.birdapi.graphql.types.AuthInput
 import app.birdsocial.birdapi.graphql.types.User
 import app.birdsocial.birdapi.graphql.types.UserInput
-import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import kotlin.RuntimeException

@@ -2,10 +2,10 @@ server:
   port: 8080
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
   graphql:
-    graphql:
-      cors:
-        allowed-origin-patterns: "*"
     graphiql:
       enabled: true
       path: /graphiql

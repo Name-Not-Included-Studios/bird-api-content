@@ -1,4 +1,4 @@
-package app.birdsocial.birdapi.graphql
+package app.birdsocial.birdapi.graphql.resolvers
 
 import app.birdsocial.birdapi.exceptions.*
 import app.birdsocial.birdapi.graphql.types.*
@@ -9,44 +9,47 @@ import app.birdsocial.birdapi.neo4j.repo.UserRepository
 import app.birdsocial.birdapi.neo4j.schemas.PostNode
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
 import app.birdsocial.birdapi.services.*
-import io.github.bucket4j.local.LocalBucket
 //import io.sentry.spring.tracing.SentrySpan
 //import io.sentry.spring.tracing.SentryTransaction
 import jakarta.servlet.http.HttpServletRequest
 import org.mindrot.jbcrypt.BCrypt
 import org.neo4j.cypherdsl.core.Cypher
 import org.passay.*
+import org.springframework.core.env.Environment
+import org.springframework.core.env.get
 import org.springframework.data.neo4j.core.Neo4jTemplate
 import org.springframework.graphql.data.method.annotation.Argument
 import org.springframework.graphql.data.method.annotation.MutationMapping
 import org.springframework.graphql.data.method.annotation.QueryMapping
 import org.springframework.http.HttpHeaders
 import org.springframework.stereotype.Controller
-import java.time.LocalDateTime
+import java.time.Instant
 import java.util.*
 
 
 @Controller
 class ApiGateway(
     val request: HttpServletRequest,
+    val env: Environment,
 
     val userRepository: UserRepository,
     val postRepository: PostRepository,
     val neo4jRepository: Neo4jRepository,
     val neo4j: Neo4jTemplate,
 
-    val bucket: LocalBucket,
     val sentry: SentryHelper,
+
+    val api: ApiHelper,
     val authService: AuthService,
     val tokenService: TokenService,
 ) {
-    @QueryMapping
-    fun apiVersion(): String = captureQueryTransaction {
-        return "0.0.2"
-    }
+//    @QueryMapping
+//    fun search(@Argument query: String): List<User> {
+//
+//    }
 
 //    @QueryMapping
-//    fun searchUsers(@Argument query: UserSearchCriteria): List<User> = captureQueryTransaction {
+//    fun searchUsers(@Argument query: UserSearchCriteria): List<User> = sentry.captureQueryTransaction {
 //        if (!envData.bucket.tryConsume(1))
 //            throw ThrottleRequestException()
 //
@@ -69,32 +72,14 @@ class ApiGateway(
 //        return sentryHelper.span("user-srv", "getUsers") { userDataService.getUsers(filter) }
 //    }
 
-    private fun throttleRequest(numTokens: Long) {
-        println("Tokens: ${bucket.availableTokens}")
-
-        if (!bucket.tryConsume(numTokens))
-            throw ThrottleRequestException()
-    }
-
-    private fun authorize(): String {
-        // Get Authorization Header
-        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-        // Get User ID from refresh token (also checks if signature is valid)
-        return sentry.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
-    }
 
     @QueryMapping
-    fun getMe(): User = captureQueryTransaction {
+    fun getMe(): User = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(1)
-
-//        // Get Authorization Header
-//        val access = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
-//        // Get User ID from refresh token (also checks if signature is valid)
-//        val userId = sentry.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
+        api.throttleRequest(1)
 
         // Get userId from authorization token
-        val userId = authorize()
+        val userId = tokenService.authorize(request)
 
         // Get User from Database
         return neo4jRepository.findOneById<UserNode>("User", userId).toUser()
@@ -102,9 +87,9 @@ class ApiGateway(
 
     // TODO - Fix ck
     @QueryMapping
-    fun refresh(): String = captureQueryTransaction {
+    fun refresh(): RefreshResponse = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(50)
+        api.throttleRequest(50)
 
         // Get Authorization Header
         val refresh = request.getHeader(HttpHeaders.AUTHORIZATION) ?: throw AuthException()
@@ -119,16 +104,17 @@ class ApiGateway(
             throw AuthException()
 
         // Create Access Token Based on the Refresh Token
-        return sentry.span(
+        val tokenData = sentry.span(
             "tkn-srv",
             "createAccessToken"
         ) { tokenService.createAccessToken(refresh) }
+        return RefreshResponse(tokenData.first, tokenData.second)
     }
 
     @MutationMapping
-    fun login(@Argument auth: AuthInput): LoginResponse = captureQueryTransaction {
+    fun login(@Argument auth: AuthInput): LoginResponse = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(50)
+        api.throttleRequest(50)
 
         // Check password for repetitions, sequences, length, etc
         sentry.span("compute", "checkPasswordValidity") { checkPasswordStupidity(auth.password) }
@@ -137,9 +123,9 @@ class ApiGateway(
     }
 
     @MutationMapping
-    fun createAccount(@Argument auth: AuthInput): LoginResponse = captureQueryTransaction {
+    fun createAccount(@Argument auth: AuthInput): LoginResponse = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(200)
+        api.throttleRequest(200)
 
         // Check password for repetitions, sequences, length, etc
         sentry.span("compute", "checkPasswordValidity") { checkPasswordStupidity(auth.password) }
@@ -160,10 +146,13 @@ class ApiGateway(
             auth.email,
             "",
             "",
-            auth.password,
+            BCrypt.hashpw(
+                auth.password,
+                BCrypt.gensalt(env["BCRYPT_LOG_ROUNDS"]?.toInt() ?: 12)
+            ),
             refresh,
-            LocalDateTime.now(),
-            LocalDateTime.now(),
+            Instant.now(),
+            Instant.now(),
             "",
             "",
             "",
@@ -173,12 +162,15 @@ class ApiGateway(
 //            mutableListOf(),
         )
 
+        val tokenData = tokenService.createAccessToken(refresh)
+
         return LoginResponse(
             sentry.span("user-srv", "createUser") {
                 userRepository.save<UserNode>(userNode).toUser()
             },
-            sentry.span("tkn-srv", "createAccessToken") { tokenService.createAccessToken(refresh) },
-            refresh
+            tokenData.first,
+            refresh,
+            tokenData.second
         )
     }
 
@@ -186,9 +178,9 @@ class ApiGateway(
     fun updatePassword(
         @Argument oldPassword: String,
         @Argument newPassword: String
-    ): LoginResponse = captureQueryTransaction {
+    ): LoginResponse = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(200)
+        api.throttleRequest(200)
 
         // Check password for repetitions, sequences, length, etc
         sentry.span("compute", "checkPasswordValidity") { checkPasswordStupidity(newPassword) }
@@ -244,11 +236,11 @@ class ApiGateway(
     @MutationMapping
     fun deleteUser(@Argument auth: AuthInput): Boolean =
         // Check if too many requests
-        captureQueryTransaction { // TODO - Leaves us with nothing to track down bad actors
-            throttleRequest(350)
+        sentry.captureTransaction { // TODO - Leaves us with nothing to track down bad actors
+            api.throttleRequest(350)
 
             // Get userId from authorization token
-            val userId = authorize()
+            val userId = tokenService.authorize(request)
 
             // Using login functionality to ensure that the user has correct authentication
             val userToDelete = sentry.span(
@@ -275,14 +267,14 @@ class ApiGateway(
     @MutationMapping
     fun createPost(
         @Argument post: PostInput
-    ): Post = captureQueryTransaction {
+    ): Post = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(10)
+        api.throttleRequest(10)
 //        if (!envData.bucket.tryConsume(10)) // TODO - Add tokens for image size
 //            throw ThrottleRequestException()
 
         // Get userId from authorization token
-        val userId = authorize()
+        val userId = tokenService.authorize(request)
 
         // Get me from database
         val user = neo4jRepository.findOneById<UserNode>("User", userId)
@@ -292,8 +284,8 @@ class ApiGateway(
             UUID.randomUUID().toString(),
             post.content,
             post.annotation ?: "",
-            LocalDateTime.now(),
-            LocalDateTime.now(),
+            Instant.now(),
+            Instant.now(),
 //            user,
 //            null,
 //            mutableListOf(),
@@ -316,12 +308,12 @@ class ApiGateway(
     @MutationMapping
     fun deletePost( // TODO - change to 'visible = false'
         @Argument postId: String
-    ): Post = captureQueryTransaction {
+    ): Post = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(5)
+        api.throttleRequest(5)
 
         // Get userId from authorization token
-        val userId = authorize()
+        val userId = tokenService.authorize(request)
 
         // Get post from database
         val post = neo4jRepository.findOneById<PostNode>("Post", postId)
@@ -342,12 +334,12 @@ class ApiGateway(
     fun annotatePost(
         @Argument postId: String,
         @Argument annotation: String
-    ): Post = captureQueryTransaction {
+    ): Post = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(5)
+        api.throttleRequest(5)
 
         // Get userId from authorization token
-        val userId = authorize()
+        val userId = tokenService.authorize(request)
 
         val post = neo4jRepository.findOneById<PostNode>("Post", postId)
 
@@ -357,7 +349,7 @@ class ApiGateway(
 
         // Set annotation data
         post.annotation = annotation
-        post.annotationDate = LocalDateTime.now()
+        post.annotationDate = Instant.now()
 
         // Save changes to database
         sentry.span("postRepository", "save") { postRepository.save(post) }
@@ -368,12 +360,12 @@ class ApiGateway(
     @MutationMapping
     fun followUser(
         @Argument followerId: String
-    ): User {//= captureQueryTransaction {
+    ): User {//= sentry.captureQueryTransaction {
         // Check if too many requests
-        throttleRequest(1)
+        api.throttleRequest(1)
 
         // Get userId from authorization token
-        val userId = authorize()
+        val userId = tokenService.authorize(request)
 
         // Get me from database
         val user = neo4jRepository.findOneById<UserNode>("User", userId)
@@ -395,12 +387,12 @@ class ApiGateway(
     @MutationMapping
     fun unfollowUser(
         @Argument followerId: String
-    ): User {// = captureQueryTransaction {
+    ): User = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(1)
+        api.throttleRequest(1)
 
         // Get userId from authorization token
-        val userId = authorize()
+        val userId = tokenService.authorize(request)
 
         // Get me from database
         val user = neo4jRepository.findOneById<UserNode>("User", userId)
@@ -422,12 +414,12 @@ class ApiGateway(
     @MutationMapping
     fun likePost(
         @Argument postId: String
-    ): Post = captureQueryTransaction {
+    ): Post = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(1)
+        api.throttleRequest(1)
 
         // Get userId from authorization token
-        val userId = authorize()
+        val userId = tokenService.authorize(request)
 
         // Get me from database
         val user = neo4jRepository.findOneById<UserNode>("User", userId)
@@ -449,12 +441,12 @@ class ApiGateway(
     @MutationMapping
     fun unlikePost(
         @Argument postId: String
-    ): Post = captureQueryTransaction {
+    ): Post = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(1)
+        api.throttleRequest(1)
 
         // Get userId from authorization token
-        val userId = authorize()
+        val userId = tokenService.authorize(request)
 
         // Get me from database
         val user = neo4jRepository.findOneById<UserNode>("User", userId)
@@ -476,9 +468,9 @@ class ApiGateway(
     @QueryMapping
     fun getPost(
         @Argument postId: String
-    ): Post = captureQueryTransaction {
+    ): Post = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(1)
+        api.throttleRequest(1)
 
         // Get post from database
         return neo4jRepository.findOneById<PostNode>("Post", postId).toPost()
@@ -487,12 +479,12 @@ class ApiGateway(
     @MutationMapping
     fun updateUser(
         @Argument user: UserInput
-    ): User = captureQueryTransaction {
+    ): User = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(5)
+        api.throttleRequest(5)
 
         // Get userId from authorization token
-        val userId = authorize()
+        val userId = tokenService.authorize(request)
 
         // Get me from database
         val userNode = neo4jRepository.findOneById<UserNode>("User", userId)
@@ -537,9 +529,9 @@ class ApiGateway(
         @Argument userId: String,
         @Argument page: Int,
         @Argument pageSize: Int
-    ): List<Post> = captureQueryTransaction {
+    ): List<Post> = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(5)
+        api.throttleRequest(5)
 
         // Limit page size
         val pageSizeLimited = if (pageSize > 25) 25 else pageSize
@@ -563,15 +555,15 @@ class ApiGateway(
     fun getTimeline(
         @Argument page: Int,
         @Argument pageSize: Int,
-    ): List<Post> = captureQueryTransaction {
+    ): List<Post> = sentry.captureTransaction {
         // Check if too many requests
-        throttleRequest(20) // was 5
+        api.throttleRequest(20) // was 5
 
         // Limit page size
         val pageSizeLimited = if (pageSize > 25) 25 else pageSize
 
         // Get userId from authorization token
-        val userId = authorize()
+        val userId = tokenService.authorize(request)
 
         sentry.span<Nothing>("user-srv", "getFollowedPosts") {
             // MATCH (me:User {id:$userId})-[:FOLLOWING]->(:User)->[:AUTHORED]->(posts:Post) RETURN posts SKIP ${page * pageSizeLimited} LIMIT $pageSizeLimited
@@ -591,10 +583,6 @@ class ApiGateway(
 
             return neo4j.findAll(request, PostNode::class.java).map { p -> p.toPost() }
         }
-    }
-
-    private final inline fun <T> captureQueryTransaction(body: () -> T): T {
-        return sentry.span(Thread.currentThread().stackTrace[1].methodName, "http", body)
     }
 
     /*

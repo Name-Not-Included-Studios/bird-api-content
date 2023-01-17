@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "app.birdsocial.birdapi"
-version = "0.0.2" // TODO - Bump Version
+version = "0.0.3" // TODO - Bump Version
 java.sourceCompatibility = JavaVersion.VERSION_17
 
 repositories {
@@ -23,17 +23,23 @@ dependencies {
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
 
+	testImplementation("org.springframework.boot:spring-boot-starter-test")
+	testImplementation("org.springframework:spring-webflux")
+	testImplementation("org.springframework.graphql:spring-graphql-test")
+
+	implementation("org.springframework.security:spring-security-core:5.7.3")
+
 	implementation("org.springframework.boot:spring-boot-starter-data-neo4j:3.0.1")
 //	implementation("org.neo4j.driver:neo4j-java-driver-spring-boot-starter:4.3.6.0")
-
-//	implementation("org.neo4j:neo4j-ogm-embedded-driver:3.2.39")
 //	implementation("org.neo4j.test:neo4j-harness:5.3.0")
-
 //	implementation("io.github.cdimascio:dotenv-kotlin:6.4.0")
+//	implementation("com.opencsv:opencsv:4.1")
+
+	implementation("com.amazonaws:aws-java-sdk:1.12.382")
+	implementation("javax.xml.bind:jaxb-api:2.3.1")
+//	implementation("commons-fileupload:commons-fileupload:1.4")
 
 	implementation("com.bucket4j:bucket4j-core:8.1.1")
-
-//	implementation("com.opencsv:opencsv:4.1")
 
 	implementation("org.mindrot:jbcrypt:0.4")
 
@@ -43,14 +49,10 @@ dependencies {
 
 	implementation("org.springframework.boot:spring-boot-starter-validation:3.0.1")
 
-	implementation("io.sentry:sentry:6.11.0")
+	implementation("io.sentry:sentry:6.12.0")
 //	implementation("io.sentry:sentry-spring-boot-starter:6.11.0")
 //	implementation("io.sentry:sentry-graphql:6.11.0")
 //	implementation("io.sentry:sentry-logback:6.11.0")
-
-	testImplementation("org.springframework.boot:spring-boot-starter-test")
-	testImplementation("org.springframework:spring-webflux")
-	testImplementation("org.springframework.graphql:spring-graphql-test")
 }
 
 tasks.withType<KotlinCompile> {

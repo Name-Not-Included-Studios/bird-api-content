@@ -1,8 +1,10 @@
 package app.birdsocial.birdapi.neo4j.schemas
 
 import app.birdsocial.birdapi.graphql.types.User
+import org.joda.time.DateTime
 import org.springframework.data.neo4j.core.schema.*
 import org.springframework.data.neo4j.core.support.UUIDStringGenerator
+import java.time.Instant
 import java.time.LocalDateTime
 
 //@NodeEntity(label = "User")
@@ -31,8 +33,8 @@ data class UserNode (
         @Property var displayName: String,
         @Property var password: String,
         @Property var refreshToken: String,
-        @Property var lastLogin: LocalDateTime,
-        @Property var creationDate: LocalDateTime,
+        @Property var lastLogin: Instant,
+        @Property var creationDate: Instant,
         @Property var bio: String,
         @Property var websiteUrl: String,
         @Property var avatarUrl: String,

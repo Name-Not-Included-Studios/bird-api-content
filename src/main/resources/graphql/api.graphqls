@@ -55,17 +55,19 @@ type LoginResponse {
     user: User!
     access_token: String!
     refresh_token: String!
+    accessExpiry: String!
 }
 
-type Content {
-    content: String
+type RefreshResponse {
+    access_token: String!
+    accessExpiry: String!
 }
 
 type Query {
     apiVersion: ID!
     searchUsers(query: UserSearchCriteria!): [User]
     getMe: User
-    refresh: String
+    refresh: RefreshResponse
 
     getPost(postId: ID!): Post
     getRecentPostsFromUser(userId: ID!, page: Int!, pageSize: Int!): [Post]
