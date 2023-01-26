@@ -1,14 +1,16 @@
 package app.birdsocial.birdapi.graphql.resolvers
 
+import app.birdsocial.birdapi.config.ApplicationConfig
 import app.birdsocial.birdapi.exceptions.*
 import app.birdsocial.birdapi.graphql.types.*
 import app.birdsocial.birdapi.helper.SentryHelper
-import app.birdsocial.birdapi.neo4j.repo.*
 import app.birdsocial.birdapi.neo4j.schemas.PostNode
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
+import app.birdsocial.birdapi.repository.PostRepository
+import app.birdsocial.birdapi.repository.PostService
+import app.birdsocial.birdapi.repository.UserRepository
+import app.birdsocial.birdapi.repository.UserService
 import app.birdsocial.birdapi.services.*
-//import io.sentry.spring.tracing.SentrySpan
-//import io.sentry.spring.tracing.SentryTransaction
 import jakarta.servlet.http.HttpServletRequest
 import org.mindrot.jbcrypt.BCrypt
 import org.neo4j.cypherdsl.core.Cypher
@@ -25,15 +27,15 @@ import java.time.Instant
 import java.util.*
 import java.util.regex.Pattern
 
-
 @Controller
 class ApiGateway(
     val request: HttpServletRequest,
     val env: Environment,
 
+    val appConfig: ApplicationConfig,
+
     val userRepository: UserRepository,
     val postRepository: PostRepository,
-//    val neo4JService: Neo4jService,
     val userService: UserService,
     val postService: PostService,
     val neo4j: Neo4jTemplate,
@@ -44,35 +46,188 @@ class ApiGateway(
     val authService: AuthService,
     val tokenService: TokenService,
 ) {
-//    @QueryMapping
-//    fun search(@Argument query: String): List<User> {
-//
-//    }
+    @QueryMapping
+    fun searchUsers(@Argument query: UserSearch): List<User> {
+        val pagination = Pagination(query.pagination.page, query.pagination.pageSize.coerceIn(1, appConfig.maxPageSize))
 
-//    @QueryMapping
-//    fun searchUsers(@Argument query: UserSearchCriteria): List<User> = sentry.captureQueryTransaction {
-//        if (!envData.bucket.tryConsume(1))
-//            throw ThrottleRequestException()
-//
-//        val usernameContainsFilter = Filter("username", ComparisonOperator.CONTAINING, query.usernameContains)
-//        val usernameStartsWithFilter =
-//            Filter("username", ComparisonOperator.STARTING_WITH, query.usernameStartsWith)
-//        val usernameEndsWithFilter = Filter("username", ComparisonOperator.ENDING_WITH, query.usernameEndsWith)
-//        val usernameFollowerCountGreaterThanFilter =
-//            Filter("followersCount", ComparisonOperator.GREATER_THAN_EQUAL, query.followerCountGreaterThan)
-//        val usernameFollowerCountLessThanFilter =
-//            Filter("followersCount", ComparisonOperator.LESS_THAN_EQUAL, query.followerCountLessThan)
-//        val bioContainsFilter = Filter("bio", ComparisonOperator.CONTAINING, query.bioContains)
-//        val usernameFuzzyFilter =
-//            Filter("username", ComparisonOperator.LIKE, query.usernameFuzzySearch) // TODO - Change to Fuzzy Search
-//
-//        val filter = usernameContainsFilter.and(usernameStartsWithFilter)
-//            .and(usernameEndsWithFilter).and(usernameFollowerCountGreaterThanFilter)
-//            .and(usernameFollowerCountLessThanFilter).and(bioContainsFilter).and(usernameFuzzyFilter)
-//
-//        return sentryHelper.span("user-srv", "getUsers") { userDataService.getUsers(filter) }
-//    }
+        when (query.operation) {
+            Operation.EQUALS -> when (query.param) {
+                UserSearchParam.USERNAME -> return userService.findAllByParam("username", query.value, pagination)
+                    .map { user -> user.toUser() }
 
+                UserSearchParam.DISPLAY_NAME -> return userService.findAllByParam("displayName", query.value, pagination)
+                    .map { user -> user.toUser() }
+
+                UserSearchParam.BIO -> return userService.findAllByParam("bio", query.value, pagination)
+                    .map { user -> user.toUser() }
+
+                UserSearchParam.WEB_URL -> return userService.findAllByParam("websiteUrl", query.value, pagination)
+                    .map { user -> user.toUser() }
+
+                UserSearchParam.CHIRP_COUNT -> {
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (u:User)-[r:AUTHORED]->(:Post)
+                            WITH u, count(r) as postCount
+                            WHERE postCount = ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                UserSearchParam.FOLLOWER_COUNT -> {
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (:User)-[r:FOLLOWING]->(u:User)
+                            WITH u, count(r) as followCount
+                            WHERE followCount = ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                UserSearchParam.FOLLOWING_COUNT -> {
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (u:User)-[r:FOLLOWING]->(:User)
+                            WITH u, count(r) as followCount
+                            WHERE followCount = ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                else -> throw BirdException("Invalid Query Param")
+            }
+
+            Operation.CONTAINS -> when (query.param) {
+                UserSearchParam.USERNAME -> {
+                    if (query.value.isEmpty()) throw BirdException("Query length must be greater than 0.")
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (u:User)
+                            WHERE u.username CONTAINS ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                UserSearchParam.DISPLAY_NAME -> {
+                    if (query.value.isEmpty()) throw BirdException("Query length must be greater than 0.")
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (u:User)
+                            WHERE u.displayName CONTAINS ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                UserSearchParam.BIO -> {
+                    if (query.value.isEmpty()) throw BirdException("Query length must be greater than 0.")
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (u:User)
+                            WHERE u.bio CONTAINS ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                else -> throw BirdException("Invalid Query Param")
+            }
+
+            Operation.GREATER_THAN -> when (query.param) {
+                UserSearchParam.CHIRP_COUNT -> {
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (u:User)-[r:AUTHORED]->(:Post)
+                            WITH u, count(r) as postCount
+                            WHERE postCount > ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                UserSearchParam.FOLLOWER_COUNT -> {
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (:User)-[r:FOLLOWING]->(u:User)
+                            WITH u, count(r) as followCount
+                            WHERE followCount > ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                UserSearchParam.FOLLOWING_COUNT -> {
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (u:User)-[r:FOLLOWING]->(:User)
+                            WITH u, count(r) as followCount
+                            WHERE followCount > ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                else -> throw BirdException("Invalid Query Param")
+            }
+
+            Operation.LESS_THAN -> when (query.param) {
+                UserSearchParam.CHIRP_COUNT -> {
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (u:User)-[r:AUTHORED]->(:Post)
+                            WITH u, count(r) as postCount
+                            WHERE postCount < ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                UserSearchParam.FOLLOWER_COUNT -> {
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (:User)-[r:FOLLOWING]->(u:User)
+                            WITH u, count(r) as followCount
+                            WHERE followCount < ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                UserSearchParam.FOLLOWING_COUNT -> {
+                    val params = mutableMapOf<String, Any>(Pair("value", query.value))
+                    val cypher =
+                        """
+                            MATCH (u:User)-[r:FOLLOWING]->(:User)
+                            WITH u, count(r) as followCount
+                            WHERE followCount < ${'$'}value
+                            RETURN u $pagination
+                        """.trimIndent()
+                    return neo4j.findAll(cypher, params, UserNode::class.java).map { user -> user.toUser() }
+                }
+
+                else -> throw BirdException("Invalid Query Param")
+            }
+
+            else -> throw BirdException("Invalid Query Operation")
+        }
+    }
 
     @QueryMapping
     fun getMe(): User = sentry.captureTransaction {
@@ -136,10 +291,10 @@ class ApiGateway(
         val EMAIL_ADDRESS_PATTERN = Pattern.compile(
             "[a-zA-Z0-9\\+\\.\\_\\%\\-\\+]{1,256}" +
                     "\\@" +
-                    "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,64}" +
+                    "[a-zA-Z0-9][a-zA-Z0-9\\-]{1,64}" +
                     "(" +
                     "\\." +
-                    "[a-zA-Z0-9][a-zA-Z0-9\\-]{0,25}" +
+                    "[a-zA-Z0-9][a-zA-Z0-9\\-]{1,25}" +
                     ")+"
         )
 
@@ -151,7 +306,7 @@ class ApiGateway(
 
         // Check that no other user has this email
         sentry.span("neo4j", "getUser") {
-            if (userService.findAllByParam("email", auth.email, 0, 2).isNotEmpty())
+            if (userService.findAllByParam("email", auth.email, Pagination(0, 1)).isNotEmpty())
                 throw BirdException("Email Already in Use")
         }
 
@@ -172,7 +327,6 @@ class ApiGateway(
             refresh,
             Instant.now(),
             Instant.now(),
-            "",
             "",
             "",
         )
@@ -501,14 +655,15 @@ class ApiGateway(
         // Get userId from authorization token
         val userId = tokenService.authorize(request)
 
+        println("UserID: $userId")
+
         // Get me from database
         val userNode = userService.findOneById(userId)
 
         // If user supplied a new username
         if (user.username != null) {
             // Find any user in database with the username supplied
-
-            if (userService.findAllByParam("username", user.username, 0, 1).isNotEmpty())
+            if (userService.findAllByParam("username", user.username, Pagination(0, 1)).isNotEmpty())
                 throw BirdException("Username Already in Use") // TODO - custom exception
 
             // Set node username
@@ -526,10 +681,6 @@ class ApiGateway(
         // If user supplied a new websiteUrl, set it
         if (user.websiteUrl != null)
             userNode.websiteUrl = user.websiteUrl
-
-        // If user supplied a new avatarUrl, set it
-        if (user.avatarUrl != null)
-            userNode.avatarUrl = user.avatarUrl
 
         // Save changes to database
         userRepository.save(userNode)
@@ -549,7 +700,7 @@ class ApiGateway(
         api.throttleRequest(5)
 
         // Limit page size
-        val pageSizeLimited = if (pageSize > 25) 25 else pageSize
+        val pageSizeLimited = if (pageSize > 50) 50 else pageSize
 
         sentry.span<Nothing>("neo4j", "getPost") {
             // MATCH (:User {id:$userId})-[:AUTHORED]->(post:Post) RETURN post SKIP ${page * pageSizeLimited} LIMIT $pageSizeLimited
@@ -568,14 +719,10 @@ class ApiGateway(
 
     @QueryMapping
     fun getTimeline(
-        @Argument page: Int,
-        @Argument pageSize: Int,
+        @Argument pagination: Pagination
     ): List<Post> = sentry.captureTransaction {
         // Check if too many requests
         api.throttleRequest(20) // was 5
-
-        // Limit page size
-        val pageSizeLimited = if (pageSize > 25) 25 else pageSize
 
         // Get userId from authorization token
         val userId = tokenService.authorize(request)
@@ -592,8 +739,8 @@ class ApiGateway(
                 me.relationshipTo(users, "FOLLOWING")
                     .relationshipTo(posts, "AUTHORED")
             ).returning(posts)
-                .skip(page * pageSizeLimited)
-                .limit(pageSizeLimited)
+                .skip(pagination.page * pagination.pageSize.coerceIn(1, appConfig.maxPageSize))
+                .limit(pagination.pageSize.coerceIn(1, appConfig.maxPageSize))
                 .build()
 
             return neo4j.findAll(request, PostNode::class.java).map { p -> p.toPost() }
@@ -639,7 +786,7 @@ class ApiGateway(
             .and(bioFilter)
 
         // Query and filter results from the database
-        val usersNodes: List<UserNode> = session.loadAll(UserNode::class.java, finalFilter, Pagination(0, 25)).toList()
+        val usersNodes: List<UserNode> = session.loadAll(UserNode::class.java, finalFilter, Pagination.graphqls(0, 25)).toList()
         if (usersNodes.isEmpty())
             throw BirdException("No Users Found")
 
@@ -789,9 +936,9 @@ class ApiGateway(
             val session = sessionFactory.openSession()
 
             val emailFilter = Filter("email", ComparisonOperator.EQUALS, userCreate.username)
-            val emailTaken = session.loadAll(UserNode::class.java, emailFilter, Pagination(0, 10)).isNotEmpty()
+            val emailTaken = session.loadAll(UserNode::class.java, emailFilter, Pagination.graphqls(0, 10)).isNotEmpty()
             val usernameFilter = Filter("username", ComparisonOperator.EQUALS, userCreate.username)
-            val usernameTaken = session.loadAll(UserNode::class.java, usernameFilter, Pagination(0, 10)).isNotEmpty()
+            val usernameTaken = session.loadAll(UserNode::class.java, usernameFilter, Pagination.graphqls(0, 10)).isNotEmpty()
 
             if (emailTaken)
                 throw BirdException("Email Already Used")

@@ -1,4 +1,4 @@
-package app.birdsocial.birdapi.neo4j.repo
+package app.birdsocial.birdapi.repository
 
 import app.birdsocial.birdapi.helper.SentryHelper
 import app.birdsocial.birdapi.neo4j.schemas.PostNode

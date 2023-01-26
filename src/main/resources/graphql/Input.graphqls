@@ -1,0 +1,44 @@
+input AuthInput {
+    email: String!
+    password: String!
+}
+
+# Renamed for continuity "ProfileInput" to "UserInput"
+input UserInput {
+    username: String
+    displayName: String
+    bio: String
+    websiteUrl: String
+    avatarUrl: String
+}
+
+# Removed :userId: ID!", I will get it from access token
+input PostInput {
+    content: String!
+    annotation: String
+    parentId: ID
+}
+
+enum UserSearchParam {
+    USERNAME
+    DISPLAY_NAME
+    BIO
+    WEB_URL
+    CHIRP_COUNT
+    FOLLOWER_COUNT
+    FOLLOWING_COUNT
+}
+
+enum Operation {
+    EQUALS
+    CONTAINS
+    GREATER_THAN
+    LESS_THAN
+}
+
+input UserSearch {
+    param: UserSearchParam!
+    operation: Operation!
+    value: String!
+    pagination: Pagination!
+}

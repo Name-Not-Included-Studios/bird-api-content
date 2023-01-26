@@ -5,10 +5,9 @@ import java.util.*
 
 data class Post (
     val postId: String, // UUID
-    val userId: String, // UUID
+    val author: LazyUser, // UUID
     val content: String, // TODO - Change to content
-    val likesCount: Int,
-    val isPublished: Boolean,
-    val annotation: String?,
-    val parentId: String?, // UUID
+    val annotation: String,
+    val parent: LazyPost?, // UUID
+    val likedBy: List<LazyUser>,
 )

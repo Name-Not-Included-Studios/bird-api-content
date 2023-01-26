@@ -1,42 +1,39 @@
-package app.birdsocial.birdapi.neo4j.repo
+package app.birdsocial.birdapi.repository
 
 import app.birdsocial.birdapi.exceptions.BirdException
 import app.birdsocial.birdapi.exceptions.ResourceNotFoundException
 import app.birdsocial.birdapi.helper.SentryHelper
+import app.birdsocial.birdapi.neo4j.schemas.PostNode
+import org.neo4j.cypherdsl.core.Cypher
 import org.neo4j.cypherdsl.core.Statement
+import org.springframework.data.neo4j.core.Neo4jClient
 import org.springframework.data.neo4j.core.Neo4jTemplate
+import org.springframework.data.neo4j.repository.query.Query
 import org.springframework.stereotype.Component
 
 @Component
-abstract class Neo4jService<T>(
-    val neo4j: Neo4jTemplate,
-    val sentry: SentryHelper,
+class PostService(
+     val neo4j: Neo4jTemplate,
+     val neo4jClient: Neo4jClient,
+     val sentry: SentryHelper,
 ) {
-    abstract fun findOneById(id: String): T
-    abstract fun findOneByParam(paramName: String, param: String): T
+    val label = "Post"
 
-    abstract fun findAllByParam(
-        paramName: String,
-        param: String,
-        page: Int,
-        pageSize: Int
-    ): List<T>
+     fun findOneById(id: String): PostNode {
+        sentry.span("neo4j", "findOneById") {
+            val node = Cypher.node(label).named("n")
+                .withProperties(mapOf(Pair("id", id)))
 
-//    final inline fun <reified T> findOneById(label: String, id: String): T {
-//        sentry.span("neo4j", "findOneById") {
-//            val node = Cypher.node(label).named("n")
-//                .withProperties(mapOf(Pair("id", id)))
-//
-//            val request = Cypher.match(node)
-//                .returning(node)
-//                .limit(2)
-//                .build()
-//
-//            return findOneByCypher<T>(label, request) ?: throw ResourceNotFoundException(label)
-//        }
-//    }
+            val request = Cypher.match(node)
+                .returning(node)
+                .limit(2)
+                .build()
 
-//    final inline fun <reified T> findOneByParam(label: String, paramName: String, param: String): T {
+            return findOneByCypher(label, request)
+        }
+    }
+
+//     fun findOneByParam(paramName: String, param: String): PostNode {
 //        sentry.span("neo4j", "findOneByParam") {
 //            val node = Cypher.node(label).named("n")
 //                .withProperties(mapOf(Pair(paramName, param)))
@@ -46,17 +43,11 @@ abstract class Neo4jService<T>(
 //                .limit(2)
 //                .build()
 //
-//            return findOneByCypher<T>(label, request)
+//            return findOneByCypher(label, request)
 //        }
 //    }
-
-//    final inline fun <reified T> findAllByParam(
-//        label: String,
-//        paramName: String,
-//        param: String,
-//        page: Int,
-//        pageSize: Int
-//    ): List<T> {
+//
+//     fun findAllByParam(paramName: String, param: String, page: Int, pageSize: Int): List<PostNode> {
 //        sentry.span("neo4j", "findAllByParam") {
 //            val node = Cypher.node(label).named("n")
 //                .withProperties(mapOf(Pair(paramName, param)))
@@ -67,11 +58,11 @@ abstract class Neo4jService<T>(
 //                .limit(pageSize)
 //                .build()
 //
-//            return findAllByCypher<T>(request)
+//            return findAllByCypher(request)
 //        }
 //    }
 
-    final inline fun <reified R> findOneByCypher(dataName: String, cypher: Statement): R {
+    private inline fun <reified R> findOneByCypher(dataName: String, cypher: Statement): R {
         sentry.span("neo4j", "findOneByCypher") {
             println("Cypher: ${cypher.cypher}")
 
@@ -83,8 +74,8 @@ abstract class Neo4jService<T>(
                     throw BirdException("$dataName returned wrong type")
 
 
-//            if (users.size > 1)
-//                throw BirdException("Ambiguous Data Returned")
+            if (nodes.size > 1)
+                throw BirdException("Ambiguous Data Returned")
 
             if (nodes.size < 1)
                 throw ResourceNotFoundException(dataName)
@@ -93,7 +84,7 @@ abstract class Neo4jService<T>(
         }
     }
 
-    final inline fun <reified R> findAllByCypher(cypher: Statement): List<R> {
+    private inline fun <reified R> findAllByCypher(cypher: Statement): List<R> {
         sentry.span("neo4j", "findAllByCypher") {
             println("Cypher: ${cypher.cypher}")
 

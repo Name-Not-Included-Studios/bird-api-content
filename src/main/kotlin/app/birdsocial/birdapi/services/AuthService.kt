@@ -4,10 +4,8 @@ import app.birdsocial.birdapi.exceptions.AuthException
 import app.birdsocial.birdapi.graphql.types.AuthInput
 import app.birdsocial.birdapi.graphql.types.LoginResponse
 import app.birdsocial.birdapi.helper.SentryHelper
-import app.birdsocial.birdapi.neo4j.repo.Neo4jService
-import app.birdsocial.birdapi.neo4j.repo.UserRepository
-import app.birdsocial.birdapi.neo4j.repo.UserService
-import app.birdsocial.birdapi.neo4j.schemas.UserNode
+import app.birdsocial.birdapi.repository.UserRepository
+import app.birdsocial.birdapi.repository.UserService
 import org.mindrot.jbcrypt.BCrypt
 import org.springframework.core.env.Environment
 import org.springframework.core.env.get

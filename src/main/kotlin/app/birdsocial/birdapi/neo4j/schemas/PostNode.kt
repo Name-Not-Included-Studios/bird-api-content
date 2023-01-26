@@ -1,5 +1,6 @@
 package app.birdsocial.birdapi.neo4j.schemas
 
+import app.birdsocial.birdapi.graphql.types.LazyPost
 import app.birdsocial.birdapi.graphql.types.Post
 import org.springframework.data.neo4j.core.schema.GeneratedValue
 import org.springframework.data.neo4j.core.schema.Id
@@ -31,21 +32,19 @@ data class PostNode(
     fun toPost(): Post {
         return Post(
             id,
-//            authoredBy?.id ?: throw BirdException("No Author"),
-            authors.first().id,
+            authors.first().toLazyUser(),
             content,
-            likedBy.size,
-            true,
             annotation,
-            parentPost?.id,
+            parentPost?.toLazyPost(),
+            likedBy.map { user -> user.toLazyUser() },
         )
     }
 
-    fun save(): Boolean {
-        TODO("Not yet implemented")
-    }
-
-    fun delete(): Boolean {
-        TODO("Not yet implemented")
+    fun toLazyPost(): LazyPost {
+        return LazyPost(
+            id,
+            content,
+            annotation,
+        )
     }
 }

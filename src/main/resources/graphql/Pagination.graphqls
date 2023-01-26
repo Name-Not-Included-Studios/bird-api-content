@@ -1,0 +1,4 @@
+input Pagination {
+    page: Int!
+    pageSize: Int! # Max Size of 50
+}

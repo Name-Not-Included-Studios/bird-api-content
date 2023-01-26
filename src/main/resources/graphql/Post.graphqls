@@ -1,0 +1,14 @@
+type Post {
+    postId: ID!
+    author: LazyUser!
+    content: String!
+    annotation: String!
+    parent: LazyPost
+    likedBy: [LazyUser]
+}
+
+type LazyPost {
+    postId: ID!
+    content: String!
+    annotation: String!
+}

@@ -1,11 +1,10 @@
 package app.birdsocial.birdapi.neo4j.schemas
 
+import app.birdsocial.birdapi.graphql.types.LazyUser
 import app.birdsocial.birdapi.graphql.types.User
-import org.joda.time.DateTime
 import org.springframework.data.neo4j.core.schema.*
 import org.springframework.data.neo4j.core.support.UUIDStringGenerator
 import java.time.Instant
-import java.time.LocalDateTime
 
 //@NodeEntity(label = "User")
 //data class UserNode (
@@ -37,12 +36,12 @@ data class UserNode (
         @Property var creationDate: Instant,
         @Property var bio: String,
         @Property var websiteUrl: String,
-        @Property var avatarUrl: String,
+//        @Property var avatarUrl: String, // Replaced with cdn.birdsocial.app/userId/profile.png
 ) {
         @Relationship(type = "FOLLOWING", direction = Relationship.Direction.OUTGOING)
         var following: MutableList<UserNode> = mutableListOf()
         @Relationship(type = "FOLLOWING", direction = Relationship.Direction.INCOMING)
-        var followedBy: MutableList<UserNode> = mutableListOf()
+        var followers: MutableList<UserNode> = mutableListOf()
         @Relationship(type = "AUTHORED", direction = Relationship.Direction.OUTGOING)
         var posts: MutableList<PostNode> = mutableListOf()
         @Relationship(type = "LIKED", direction = Relationship.Direction.OUTGOING)
@@ -55,18 +54,19 @@ data class UserNode (
                         displayName,
                         bio,
                         websiteUrl,
-                        avatarUrl,
-                        posts.size,
-                        followedBy.size,
-                        following.size
+                        posts.map { post -> post.toLazyPost() },
+                        followers.map { user -> user.toLazyUser() },
+                        following.map { user -> user.toLazyUser() },
                 )
         }
 
-        fun save(): Boolean {
-                TODO("Not yet implemented")
-        }
-
-        fun delete(): Boolean {
-                TODO("Not yet implemented")
+        fun toLazyUser(): LazyUser {
+                return LazyUser(
+                        id,
+                        username,
+                        displayName,
+                        bio,
+                        websiteUrl,
+                )
         }
 }

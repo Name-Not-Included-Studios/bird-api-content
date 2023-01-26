@@ -1,0 +1,9 @@
+type Query {
+    apiVersion: String!
+    searchUsers(query: UserSearch!): [User]
+    getMe: User
+    refresh: RefreshResponse
+    getPost(postId: ID!): Post
+    getRecentPostsFromUser(userId: ID!, pagination: Pagination!): [Post]
+    getTimeline(pagination: Pagination!): [Post]
+}

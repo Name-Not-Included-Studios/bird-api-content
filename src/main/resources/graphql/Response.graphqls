@@ -1,0 +1,11 @@
+type LoginResponse {
+    user: User!
+    access_token: String!
+    refresh_token: String!
+    accessExpiry: String!
+}
+
+type RefreshResponse {
+    access_token: String!
+    accessExpiry: String!
+}

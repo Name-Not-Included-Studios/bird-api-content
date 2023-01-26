@@ -32,10 +32,8 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-data-neo4j:3.0.1")
 //	implementation("org.neo4j.driver:neo4j-java-driver-spring-boot-starter:4.3.6.0")
 //	implementation("org.neo4j.test:neo4j-harness:5.3.0")
-//	implementation("io.github.cdimascio:dotenv-kotlin:6.4.0")
 //	implementation("com.opencsv:opencsv:4.1")
 
-	implementation("com.amazonaws:aws-java-sdk:1.12.382")
 	implementation("javax.xml.bind:jaxb-api:2.3.1")
 //	implementation("commons-fileupload:commons-fileupload:1.4")
 
