@@ -39,4 +39,4 @@ out/
 
 ### Spring ###
 /*.env
-#/dev.env
+#/dev..env
