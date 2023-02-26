@@ -55,12 +55,15 @@ class AuthService(
 
     fun updatePassword(oldPassword: String, newPassword: String, access: String): LoginResponse {
         // (1) Get UserID from token
+        // (1.5) Check if user has permission
         // (2) Get Email from database using UserID
         // (3) Check Old Password
         // (4) Update New Password
 
         // (1) Get UserID from token
         val userId = sentry.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
+
+        // (1.5) Check if user has permission
 
         // (2) Get Email from database using UserID
         val userNode = userService.findOneById(userId)
