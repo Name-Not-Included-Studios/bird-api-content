@@ -7,7 +7,7 @@ import app.birdsocial.birdapi.graphql.types.AuthInput
 import app.birdsocial.birdapi.graphql.types.Pagination
 import app.birdsocial.birdapi.graphql.types.User
 import app.birdsocial.birdapi.graphql.types.UserInput
-import app.birdsocial.birdapi.helper.SentryHelper
+import app.birdsocial.birdapi.services.SentryHelper
 import app.birdsocial.birdapi.repository.PostRepository
 import app.birdsocial.birdapi.repository.PostService
 import app.birdsocial.birdapi.repository.UserRepository
@@ -40,6 +40,7 @@ class UserResolver(
     val tokenService: TokenService,
 ) {
 
+    // TODO - Unprotected
     @QueryMapping
     fun getMe(): User = sentry.captureTransaction {
         // Check if too many requests
@@ -56,6 +57,7 @@ class UserResolver(
         return user.toUser()
     }
 
+    // TODO - Unprotected
     // deleteUser() requires access token as well as email and password
     @MutationMapping
     fun deleteUser(@Argument auth: AuthInput): Boolean =
@@ -88,6 +90,7 @@ class UserResolver(
             }
         }
 
+    // TODO - Unprotected
     @MutationMapping
     fun followUser(
         @Argument followerId: String
@@ -115,6 +118,7 @@ class UserResolver(
         return followee.toUser()
     }
 
+    // TODO - Unprotected
     @MutationMapping
     fun unfollowUser(
         @Argument followerId: String
@@ -142,6 +146,7 @@ class UserResolver(
         return followee.toUser()
     }
 
+    // TODO - Unprotected
     @MutationMapping
     fun updateUser(
         @Argument user: UserInput

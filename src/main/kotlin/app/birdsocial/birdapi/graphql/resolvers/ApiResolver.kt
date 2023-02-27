@@ -1,7 +1,7 @@
 package app.birdsocial.birdapi.graphql.resolvers
 
 import app.birdsocial.birdapi.graphql.types.ApiStatus
-import app.birdsocial.birdapi.helper.SentryHelper
+import app.birdsocial.birdapi.services.SentryHelper
 import org.springframework.core.env.Environment
 import org.springframework.core.env.get
 import org.springframework.graphql.data.method.annotation.QueryMapping

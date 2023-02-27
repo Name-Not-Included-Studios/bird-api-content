@@ -3,7 +3,7 @@ package app.birdsocial.birdapi.graphql.resolvers
 import app.birdsocial.birdapi.config.ApplicationConfig
 import app.birdsocial.birdapi.exceptions.*
 import app.birdsocial.birdapi.graphql.types.*
-import app.birdsocial.birdapi.helper.SentryHelper
+import app.birdsocial.birdapi.services.SentryHelper
 import app.birdsocial.birdapi.neo4j.schemas.PostNode
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
 import app.birdsocial.birdapi.repository.PostRepository
@@ -34,6 +34,8 @@ class ApiGateway(
 
     val appConfig: ApplicationConfig,
 
+    val permissionService: PermissionService,
+
     val userRepository: UserRepository,
     val postRepository: PostRepository,
     val userService: UserService,
@@ -47,6 +49,7 @@ class ApiGateway(
     val tokenService: TokenService,
 ) {
 
+    // TODO - Unprotected
     // TODO - Fix ck
     @QueryMapping
     fun refresh(): RefreshResponse = sentry.captureTransaction {
@@ -73,6 +76,7 @@ class ApiGateway(
         return RefreshResponse(tokenData.first, tokenData.second)
     }
 
+    // TODO - Unprotected
     @MutationMapping
     fun login(@Argument auth: AuthInput): LoginResponse = sentry.captureTransaction {
         // Check if too many requests
@@ -84,6 +88,7 @@ class ApiGateway(
         return sentry.span("auth-srv", "login") { authService.login(auth) }
     }
 
+    // TODO - Unprotected
     @MutationMapping
     fun createAccount(@Argument auth: AuthInput): LoginResponse = sentry.captureTransaction {
         // Check if too many requests
@@ -145,6 +150,7 @@ class ApiGateway(
         )
     }
 
+    // TODO - Unprotected
     @MutationMapping
     fun updatePassword(
         @Argument oldPassword: String,
@@ -203,8 +209,7 @@ class ApiGateway(
         return true
     }
 
-
-
+    // TODO - Unprotected
     @MutationMapping
     fun createPost(
         @Argument post: PostInput
@@ -216,6 +221,10 @@ class ApiGateway(
 
         // Get userId from authorization token
         val userId = tokenService.authorize(request)
+
+        // Check if user has permission
+        if (permissionService.checkPermission(userId, "bird.post.create"))
+            throw PermissionException()
 
         // Get me from database
         val user = userService.findOneById(userId)
@@ -246,6 +255,7 @@ class ApiGateway(
         }
     }
 
+    // TODO - Unprotected
     @MutationMapping
     fun deletePost( // TODO - change to 'visible = false'
         @Argument postId: String
@@ -271,6 +281,7 @@ class ApiGateway(
         return post.toPost()
     }
 
+    // TODO - Unprotected
     @MutationMapping
     fun annotatePost(
         @Argument postId: String,
@@ -298,6 +309,7 @@ class ApiGateway(
         return post.toPost()
     }
 
+    // TODO - Unprotected
     @MutationMapping
     fun likePost(
         @Argument postId: String
@@ -325,6 +337,7 @@ class ApiGateway(
         return post.toPost()
     }
 
+    // TODO - Unprotected
     @MutationMapping
     fun unlikePost(
         @Argument postId: String
@@ -352,6 +365,7 @@ class ApiGateway(
         return post.toPost()
     }
 
+    // TODO - Unprotected
     @QueryMapping
     fun getPost(
         @Argument postId: String
@@ -363,8 +377,7 @@ class ApiGateway(
         return postService.findOneById(postId).toPost()
     }
 
-    //    @SentryTransaction(operation = "operation-name")
-    //    @SentrySpan(operation = "task-name")
+    // TODO - Unprotected
     @QueryMapping
     fun getRecentPostsFromUser(
         @Argument userId: String,
@@ -392,6 +405,7 @@ class ApiGateway(
         }
     }
 
+    // TODO - Unprotected
     @QueryMapping
     fun getTimeline(
         @Argument pagination: Pagination

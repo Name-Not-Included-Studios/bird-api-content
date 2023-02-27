@@ -1,13 +1,13 @@
-package app.birdsocial.birdapi.helper
+package app.birdsocial.birdapi.services
 
 import app.birdsocial.birdapi.exceptions.AuthException
 import app.birdsocial.birdapi.exceptions.BirdException
 import app.birdsocial.birdapi.exceptions.ThrottleRequestException
 import io.sentry.Sentry
 import io.sentry.SpanStatus
-import org.springframework.stereotype.Component
+import org.springframework.stereotype.Service
 
-@Component
+@Service
 class SentryHelper {
     final inline fun <T> captureTransaction(body: () -> T): T {
         return span(Thread.currentThread().stackTrace[1].methodName, "http", body)

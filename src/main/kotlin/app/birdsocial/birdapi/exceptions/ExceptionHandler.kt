@@ -12,6 +12,7 @@ class BirdException(message: String?) : RuntimeException(message)
 class ResourceNotFoundException(dataType: String) : RuntimeException(dataType)
 class DatabaseError() : RuntimeException()
 class AuthException() : RuntimeException()
+class PermissionException() : RuntimeException()
 class ThrottleRequestException() : RuntimeException()
 
 @Component
@@ -31,6 +32,15 @@ class ExceptionHandler : DataFetcherExceptionResolverAdapter() {
                 GraphqlErrorBuilder.newError()
                     .errorType(ErrorType.ValidationError)
                     .message("Auth Failed")
+                    .path(env.executionStepInfo.path)
+                    .location(env.field.sourceLocation)
+                    .build()
+            }
+
+            is PermissionException -> {
+                GraphqlErrorBuilder.newError()
+                    .errorType(ErrorType.ValidationError)
+                    .message("No Permission")
                     .path(env.executionStepInfo.path)
                     .location(env.field.sourceLocation)
                     .build()

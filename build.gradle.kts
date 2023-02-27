@@ -16,6 +16,7 @@ repositories {
 }
 
 dependencies {
+	// Spring
 	implementation("org.springframework.boot:spring-boot-starter-graphql")
 	implementation("org.springframework.boot:spring-boot-starter-web")
 
@@ -29,12 +30,13 @@ dependencies {
 
 	implementation("org.springframework.security:spring-security-core:5.7.3")
 
+	// Implementation
 	implementation("org.springframework.boot:spring-boot-starter-data-neo4j:3.0.1")
 //	implementation("org.neo4j.driver:neo4j-java-driver-spring-boot-starter:4.3.6.0")
 //	implementation("org.neo4j.test:neo4j-harness:5.3.0")
 //	implementation("com.opencsv:opencsv:4.1")
 
-	implementation("javax.xml.bind:jaxb-api:2.3.1")
+//	implementation("javax.xml.bind:jaxb-api:2.3.1")
 //	implementation("commons-fileupload:commons-fileupload:1.4")
 
 	implementation("com.bucket4j:bucket4j-core:8.1.1")
@@ -46,6 +48,8 @@ dependencies {
 	implementation("org.passay:passay:1.6.2")
 
 	implementation("org.springframework.boot:spring-boot-starter-validation:3.0.1")
+
+	implementation("org.springframework.amqp:spring-rabbit:3.0.2")
 
 	implementation("io.sentry:sentry:6.12.0")
 //	implementation("io.sentry:sentry-spring-boot-starter:6.11.0")

@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 class ApplicationConfigProvider {
     @Bean
-    fun getConfig(): ApplicationConfig {
+    fun getApplicationConfig(): ApplicationConfig {
         return ApplicationConfig()
     }
 }

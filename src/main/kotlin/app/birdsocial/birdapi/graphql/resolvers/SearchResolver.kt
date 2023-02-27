@@ -3,7 +3,6 @@ package app.birdsocial.birdapi.graphql.resolvers
 import app.birdsocial.birdapi.config.ApplicationConfig
 import app.birdsocial.birdapi.exceptions.BirdException
 import app.birdsocial.birdapi.graphql.types.*
-import app.birdsocial.birdapi.helper.SentryHelper
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
 import app.birdsocial.birdapi.repository.UserService
 import org.springframework.data.neo4j.core.Neo4jTemplate
@@ -16,6 +15,7 @@ class SearchResolver(
         val neo4j: Neo4jTemplate,
 //        val sentry: SentryHelper,
 ) {
+    // TODO - Unprotected
     @QueryMapping
     fun searchUsers(@Argument query: UserSearch): List<User> {
         val pagination = Pagination(query.pagination.page, query.pagination.pageSize.coerceIn(1, appConfig.maxPageSize))

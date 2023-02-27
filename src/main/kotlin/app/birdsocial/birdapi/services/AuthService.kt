@@ -1,9 +1,9 @@
 package app.birdsocial.birdapi.services
 
 import app.birdsocial.birdapi.exceptions.AuthException
+import app.birdsocial.birdapi.exceptions.PermissionException
 import app.birdsocial.birdapi.graphql.types.AuthInput
 import app.birdsocial.birdapi.graphql.types.LoginResponse
-import app.birdsocial.birdapi.helper.SentryHelper
 import app.birdsocial.birdapi.repository.UserRepository
 import app.birdsocial.birdapi.repository.UserService
 import org.mindrot.jbcrypt.BCrypt
@@ -17,12 +17,14 @@ class AuthService(
     val sentry: SentryHelper,
     val env: Environment,
     val tokenService: TokenService,
+    val permissionService: PermissionService,
 
 //    val neo4JService: Neo4jService,
     val userService: UserService,
     val userRepository: UserRepository
 ) {
 
+    // TODO - Unprotected
     fun login(userLogin: AuthInput): LoginResponse { // TODO - Change from LoginResponse to something else as LoginResponse is a GraphQL type
         try {
             // Get user from database with same email
@@ -64,6 +66,8 @@ class AuthService(
         val userId = sentry.span("tkn-srv", "getToken") { tokenService.getToken(access, false).audience[0] }
 
         // (1.5) Check if user has permission
+        if (permissionService.checkPermission(userId, "bird.user.info.password.edit"))
+            throw PermissionException()
 
         // (2) Get Email from database using UserID
         val userNode = userService.findOneById(userId)

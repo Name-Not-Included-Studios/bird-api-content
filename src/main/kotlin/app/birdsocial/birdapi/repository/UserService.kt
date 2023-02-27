@@ -3,14 +3,12 @@ package app.birdsocial.birdapi.repository
 import app.birdsocial.birdapi.exceptions.BirdException
 import app.birdsocial.birdapi.exceptions.ResourceNotFoundException
 import app.birdsocial.birdapi.graphql.types.Pagination
-import app.birdsocial.birdapi.helper.SentryHelper
+import app.birdsocial.birdapi.services.SentryHelper
 import app.birdsocial.birdapi.neo4j.schemas.UserNode
 import org.neo4j.cypherdsl.core.Cypher
-import org.neo4j.cypherdsl.core.Functions
 import org.neo4j.cypherdsl.core.Statement
 import org.springframework.data.neo4j.core.Neo4jClient
 import org.springframework.data.neo4j.core.Neo4jTemplate
-import org.springframework.data.neo4j.core.findAll
 import org.springframework.stereotype.Component
 
 @Component
