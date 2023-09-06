@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "app.birdsocial.birdapi"
-version = "0.0.3" // TODO - Bump Version
+version = "0.0.4" // TODO - Bump Version
 java.sourceCompatibility = JavaVersion.VERSION_17
 
 repositories {
